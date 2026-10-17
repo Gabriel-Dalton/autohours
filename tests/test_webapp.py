@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 import errno
+from email.message import Message
+import io
 import json
 from pathlib import Path
 import socket
@@ -285,6 +287,126 @@ def test_rejects_missing_token_wrong_host_and_foreign_origin(server_factory, hea
     status, body, response_headers = http(server, "/api/state", headers=headers, token=token)
     assert status == 403 and "error" in body
     assert response_headers["Cache-Control"] == "no-store"
+
+
+def test_bootstrap_is_single_use_and_not_an_api_token(server_factory):
+    server, _ = server_factory()
+    code = server.bootstrap
+    assert server.url == server.origin + "/#b=" + code
+    for wrong in ("wrong", "", None, 42, {}, "\ud800"):
+        assert http(server, "/api/session", {"bootstrap": wrong}, token=False)[0] == 403
+    for headers in ({"Host": "foreign.example"}, {"Origin": "https://foreign.example"}):
+        assert http(server, "/api/session", {"bootstrap": code}, headers=headers, token=False)[0] == 403
+    assert http(server, "/api/state", headers={"X-Autohours-Token": code})[0] == 403
+    status, result, _ = http(server, "/api/session", {"bootstrap": code}, token=False)
+    assert status == 200 and result == {"token": server.token}
+    assert server.bootstrap is None
+    assert http(server, "/api/session", {"bootstrap": code}, token=False)[0] == 403
+    assert http(server, "/api/state", headers={"X-Autohours-Token": result["token"]})[0] == 200
+
+
+def test_expired_bootstrap_is_rejected(server_factory):
+    server, _ = server_factory(first_timeout=300)
+    server.started -= 121
+    assert http(server, "/api/session", {"bootstrap": server.bootstrap}, token=False)[0] == 403
+
+
+def test_concurrent_bootstrap_redemption_has_one_winner(server_factory):
+    server, _ = server_factory()
+    code = server.bootstrap
+    barrier = threading.Barrier(2)
+    results = []
+
+    def redeem():
+        barrier.wait(timeout=2)
+        results.append(server.redeem_bootstrap(code))
+
+    threads = [threading.Thread(target=redeem) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=2)
+    assert sorted(results) == [False, True]
+
+
+@pytest.mark.parametrize("path", ["/api/state", "/", "/api/session", "/missing"])
+@pytest.mark.parametrize("failure_at", [1, 2])
+def test_disconnected_response_is_silent_and_never_retried(server_factory, capsys, path, failure_at):
+    server, _ = server_factory()
+    writes, responses = [], []
+
+    class DisconnectedWriter:
+        def write(self, body):
+            writes.append(body)
+            if len(writes) == failure_at:
+                raise ConnectionAbortedError(10053, "Synthetic disconnect")
+
+    handler = object.__new__(webapp.Handler)
+    handler.server = server
+    handler.command = "POST" if path == "/api/session" else "GET"
+    handler.path = path
+    handler.request_version = "HTTP/1.1"
+    handler.requestline = handler.command + " " + path + " HTTP/1.1"
+    handler.headers = Message()
+    handler.headers["Host"] = server.host
+    handler.headers["X-Autohours-Token"] = server.token
+    body = json.dumps({"bootstrap": server.bootstrap}).encode()
+    handler.headers["Content-Type"] = "application/json"
+    handler.headers["Content-Length"] = str(len(body))
+    handler.rfile = io.BytesIO(body)
+    handler.wfile = DisconnectedWriter()
+    original = handler.send_response
+
+    def send_response(status):
+        responses.append(status)
+        original(status)
+
+    handler.send_response = send_response
+    handler.handle_request()
+    assert len(responses) == 1
+    assert len(writes) == failure_at
+    assert handler.close_connection
+    assert capsys.readouterr().err == ""
+
+
+@pytest.mark.parametrize("kind", ["abort", "reset", "pipe", 10053, 10054, "unexpected"])
+def test_server_errors_are_silent_or_privately_logged(server_factory, kind, capsys, tmp_path):
+    server, _ = server_factory()
+    if isinstance(kind, int):
+        error = OSError("Synthetic disconnect")
+        error.winerror = kind
+    else:
+        error = {"abort": ConnectionAbortedError, "reset": ConnectionResetError,
+                 "pipe": BrokenPipeError, "unexpected": RuntimeError}[kind](server.token)
+    try:
+        raise error
+    except Exception:
+        server.handle_error(None, ("127.0.0.1", 1234))
+    assert capsys.readouterr().err == ""
+    logs = list((tmp_path / "logs").glob("*.log"))
+    assert bool(logs) == (kind == "unexpected")
+    for log in logs:
+        text = log.read_text()
+        assert "RuntimeError" in text and server.token not in text
+
+
+def test_launch_and_error_logs_never_expose_token(server_factory, monkeypatch, capsys, tmp_path):
+    server, _ = server_factory()
+    server.shutdown()
+    monkeypatch.setattr(webapp, "Server", lambda session: server)
+    monkeypatch.setattr(webapp.desktop, "Session", lambda explicit: server.app.session)
+    monkeypatch.setattr(server, "serve_forever", lambda: None)
+    commands = []
+    monkeypatch.setattr(webapp, "browser_command", lambda url: ["synthetic-browser", "--app=" + url])
+    monkeypatch.setattr(webapp.subprocess, "Popen", lambda command, **kwargs: commands.append(command))
+    assert webapp.launch() == 0
+    output = capsys.readouterr()
+    assert server.url in output.out and not output.err
+    assert commands == [["synthetic-browser", "--app=" + server.url]]
+    assert server.token not in output.out + repr(commands)
+    webapp.log_event(server.clean_error("Synthetic error " + server.token + " " + server.bootstrap))
+    log = next((tmp_path / "logs").glob("*.log")).read_text()
+    assert server.token not in log and server.bootstrap not in log
 
 
 def test_static_files_headers_and_traversal(server_factory):

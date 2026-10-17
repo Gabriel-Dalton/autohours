@@ -1,7 +1,8 @@
 "use strict";
 
 // The view sends answers to Python. It never calculates billing or builds rules.
-const token = location.hash.slice(1);
+let token = "", heartbeat;
+const sessionKey = "autohours-token";
 const page = document.querySelector("#page");
 const footer = document.querySelector("#footer");
 const toast = document.querySelector("#toast");
@@ -685,9 +686,34 @@ async function beat() {
   try { await api("heartbeat", {}); }
   catch { notice("This window has disconnected. Reopen autohours to continue.", true); }
 }
-const heartbeat = setInterval(beat, 5000);
-document.addEventListener("visibilitychange", () => { if (!document.hidden) beat(); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && token) beat(); });
 (async () => {
-  try { await beat(); await refresh(); if (state.saved) await home(); else welcome(); }
+  try {
+    const bootstrap = new URLSearchParams(location.hash.slice(1)).get("b");
+    history.replaceState(null, "", location.pathname + location.search);
+    if (bootstrap) {
+      const response = await fetch("/api/session", {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({bootstrap}), cache: "no-store", credentials: "omit"
+      });
+      if (!response.ok) throw new Error("Expired session");
+      const result = await response.json();
+      token = result.token;
+      try { sessionStorage.setItem(sessionKey, token); } catch {}
+    } else {
+      try { token = sessionStorage.getItem(sessionKey) || ""; } catch {}
+    }
+    if (!token) throw new Error("Expired session");
+    await api("heartbeat", {});
+  } catch {
+    token = "";
+    try { sessionStorage.removeItem(sessionKey); } catch {}
+    page.replaceChildren(el("h1", {}, "This window has expired. Close it and open autohours again."));
+    footer.replaceChildren();
+    document.querySelector("#quit").disabled = true;
+    return;
+  }
+  heartbeat = setInterval(beat, 5000);
+  try { await refresh(); if (state.saved) await home(); else welcome(); }
   catch (error) { showError(error); }
 })();

@@ -534,6 +534,8 @@ class Server(ThreadingHTTPServer):
     def __init__(self, session, first_timeout=60, heartbeat_timeout=20):
         self.app = Application(session)
         self.token = secrets.token_urlsafe(32)
+        self.bootstrap = secrets.token_urlsafe(32)
+        self.bootstrap_lock = threading.Lock()
         self.first_timeout, self.heartbeat_timeout = first_timeout, heartbeat_timeout
         self.started = time.monotonic()
         self.heartbeat = None
@@ -541,7 +543,29 @@ class Server(ThreadingHTTPServer):
         super().__init__(("127.0.0.1", 0), Handler)
         self.host = f"127.0.0.1:{self.server_port}"
         self.origin = "http://" + self.host
-        self.url = self.origin + "/#" + self.token
+        self.url = self.origin + "/#b=" + self.bootstrap
+
+    def clean_error(self, message):
+        for secret in (self.token, self.url.split("#b=", 1)[1]):
+            message = message.replace(secret, "[private]")
+        return self.app.clean(message)
+
+    def handle_error(self, request, client_address):
+        error = sys.exc_info()[1]
+        if isinstance(error, ConnectionError) or (
+            isinstance(error, OSError) and getattr(error, "winerror", None) in (10053, 10054)
+        ):
+            return
+        log_event(self.clean_error(traceback.format_exc()))
+
+    def redeem_bootstrap(self, code):
+        with self.bootstrap_lock:
+            if (not isinstance(code, str) or self.bootstrap is None
+                    or time.monotonic() - self.started >= 120
+                    or not hmac.compare_digest(code.encode("utf-8", errors="surrogatepass"), self.bootstrap.encode("ascii"))):
+                return False
+            self.bootstrap = None
+            return True
 
     def serve_forever(self, poll_interval=0.1):
         monitor = threading.Thread(target=self.watch_lifetime, daemon=True)
@@ -572,7 +596,18 @@ class Handler(BaseHTTPRequestHandler):
         self.respond(code, {"error": "This request could not be accepted."})
 
     def respond(self, status, value, content_type="application/json; charset=utf-8"):
+        try:
+            self.write_response(status, value, content_type)
+        except ConnectionError:
+            self.close_connection = True
+        except OSError as exc:
+            if getattr(exc, "winerror", None) not in (10053, 10054):
+                raise
+            self.close_connection = True
+
+    def write_response(self, status, value, content_type):
         body = value if isinstance(value, bytes) else json.dumps(self.server.app.clean(value), ensure_ascii=True).encode("utf-8")
+        self.response_started = True
         self.send_response(status)
         for key, text in (("Content-Type", content_type), ("Content-Length", str(len(body))),
                           ("Content-Security-Policy", CSP), ("X-Content-Type-Options", "nosniff"),
@@ -583,6 +618,7 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(body)
 
     def handle_request(self):
+        self.response_started = False
         server = self.server
         if self.headers.get_all("Host") != [server.host] or (self.headers.get_all("Origin") is not None and self.headers.get_all("Origin") != [server.origin]):
             self.respond(403, {"error": "Open this app using its local window address."})
@@ -598,6 +634,16 @@ class Handler(BaseHTTPRequestHandler):
                 return
             filename, mime = STATIC[path]
             self.respond(200, (Path(__file__).parent / "web" / filename).read_bytes(), mime)
+            return
+        if self.command == "POST" and path == "/api/session":
+            try:
+                valid = server.redeem_bootstrap(self.read_data().get("bootstrap"))
+            except InputError:
+                valid = False
+            if valid:
+                self.respond(200, {"token": server.token})
+            else:
+                self.respond(403, {"error": "This window has expired. Close it and open autohours again."})
             return
         tokens = self.headers.get_all("X-Autohours-Token", [])
         if len(tokens) != 1 or not hmac.compare_digest(tokens[0].encode("utf-8"), server.token.encode("ascii")):
@@ -625,34 +671,39 @@ class Handler(BaseHTTPRequestHandler):
         try:
             data = {}
             if self.command in ("POST", "DELETE"):
-                lengths = self.headers.get_all("Content-Length", [])
-                if len(lengths) != 1 or not lengths[0].isdigit() or int(lengths[0]) > 1024 * 1024 or self.headers.get("Transfer-Encoding"):
-                    raise InputError("This request is too large or incomplete.")
-                if self.headers.get_content_type() != "application/json":
-                    raise InputError("Send this action from the autohours window.")
-                try:
-                    data = json.loads(self.rfile.read(int(lengths[0])))
-                except (ValueError, UnicodeError):
-                    raise InputError("This request is incomplete. Try again.") from None
-                if not isinstance(data, dict):
-                    raise InputError("This request is incomplete. Try again.")
+                data = self.read_data()
             result = server.app.dispatch(self.command, path, data, parse_qs(parsed.query))
             self.respond(200, result)
         except InputError as exc:
             self.respond(400, {"error": str(exc), **({"field": exc.field} if exc.field else {})})
         except (UserError, ValueError) as exc:
             self.respond(400, {"error": str(exc)})
-        except (BrokenPipeError, ConnectionResetError):
+        except ConnectionError:
             pass
         except Exception:
-            log_event(server.app.clean(traceback.format_exc()))
-            self.respond(500, {"error": "Something went wrong. Try again, or close and reopen autohours. Details are in your private run log."})
+            log_event(server.clean_error(traceback.format_exc()))
+            if not self.response_started:
+                self.respond(500, {"error": "Something went wrong. Try again, or close and reopen autohours. Details are in your private run log."})
         finally:
             if shared:
                 with server.app.lock:
                     server.app.readers -= 1
             else:
                 server.app.lock.release()
+
+    def read_data(self):
+        lengths = self.headers.get_all("Content-Length", [])
+        if len(lengths) != 1 or not lengths[0].isdigit() or int(lengths[0]) > 1024 * 1024 or self.headers.get("Transfer-Encoding"):
+            raise InputError("This request is too large or incomplete.")
+        if self.headers.get_content_type() != "application/json":
+            raise InputError("Send this action from the autohours window.")
+        try:
+            data = json.loads(self.rfile.read(int(lengths[0])))
+        except (ValueError, UnicodeError):
+            raise InputError("This request is incomplete. Try again.") from None
+        if not isinstance(data, dict):
+            raise InputError("This request is incomplete. Try again.")
+        return data
 
     do_GET = do_POST = do_DELETE = do_HEAD = do_OPTIONS = handle_request
 
