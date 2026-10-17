@@ -1,6 +1,6 @@
 # Working on autohours
 
-Keep the project small, cross-platform and standard-library-only at runtime, plus Windows-only tzdata. Tkinter is standard library; PyInstaller belongs only in the optional build extra. Python 3.11 is the minimum. Use synthetic fixtures and offline HTTP stubs. Never call real destinations to test, and never commit local activity, keys, personal config or exported timesheets.
+Keep the project small, cross-platform and standard-library-only at runtime, plus Windows-only tzdata. The local web app uses only bundled HTML, CSS and JavaScript. PyInstaller belongs only in the optional build extra. Python 3.11 is the minimum. Use synthetic fixtures and offline HTTP stubs. Never call real destinations to test, and never commit local activity, keys, personal config or exported timesheets.
 
 ## Development
 
@@ -33,7 +33,9 @@ Setup previews the exact schedule and requires separate approval to automate fut
 
 ## Desktop and release work
 
-Share setup decisions through plain functions in setup.py and desktop.py; keep the text wizard compatible. Run slow operations in workers, and update Tk only on the main thread. Keep visible labels, keyboard navigation and scrollable content usable at Windows scaling of 125% to 150%. Test non-UI operations with offline stubs and build every step with a hidden Tk root when a display is available.
+Share setup decisions through plain functions in setup.py and desktop.py; keep the text wizard compatible. webapp.py wraps Session with a loopback-only ThreadingHTTPServer. Serve only the bundled web/index.html, app.css and app.js, with no third-party runtime packages, CDNs, npm or build step. Keep billing and config logic in Python. Run slow operations in request threads and serialize changes and writes with a lock. Require the per-launch token on every API request, exact Host and Origin checks, CSP, no-store and nosniff headers. Never return a Clockify key or traceback to the page. Stop after 20 seconds without a heartbeat, allow 60 seconds for the first, and support explicit quit.
+
+Use inline validation and confirmation panels, visible labels and focus, keyboard controls, reduced-motion support and light and dark themes. Keep the layout usable from 360px and at Windows scaling of 125% to 150%. Save automatically when continuing from billing. Rates, day writes and future automatic writes still need separate approval of the actual preview. Use synthetic offline services for API and browser checks. Test security, setup parity, confirmation safeguards, heartbeat shutdown and cross-platform browser discovery. Localhost socket tests may skip only when binding is not permitted.
 
 No-argument launch opens the app; arguments retain the CLI. Frozen schedules invoke sys.executable directly. Pip schedules use sys.executable -B -m autohours. Keep logs in the private user config folder, retain 30 days, and show friendly errors without keys or tracebacks. App setup never authorizes rate changes, timesheet writes or nightly writes by itself.
 

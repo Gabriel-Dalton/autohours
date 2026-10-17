@@ -3,7 +3,8 @@
 import sys
 
 from . import cli
-from .runlog import logging
+from .runlog import config_id, logging
+from .config import config_path
 
 
 def attach_console():
@@ -30,6 +31,16 @@ def main(argv=None):
     if unattended and "gui" not in args:
         try:
             with logging():
+                try:
+                    parsed = cli.parser().parse_args(args)
+                except cli.UserError:
+                    parsed = None  # Let cli.main render its usual argument error.
+                except SystemExit as exc:
+                    return exc.code  # argparse already printed help.
+                if parsed is not None:
+                    print("Run config: " + config_id(config_path(parsed.config)))
+                    kind = "nightly" if parsed.command == "sync" and parsed.dates == ["yesterday"] and parsed.write else "manual"
+                    print("Run kind: " + kind)
                 result = cli.main(args)
                 print(f"Run finished: {'success' if result == 0 else 'needs attention'}")
                 return result

@@ -1,4 +1,4 @@
-"""Desktop operations without Tk dependencies or implicit destination writes."""
+"""Shared desktop operations without UI dependencies or implicit writes."""
 
 from contextlib import redirect_stdout
 from copy import deepcopy
@@ -13,9 +13,12 @@ import tempfile
 import tomllib
 import subprocess
 import sys
+import threading
 from xml.etree import ElementTree
+from zoneinfo import ZoneInfo
 
 from . import schedule, setup
+from .activitywatch import SessionActivityWatch
 from .cli import parser, review_period, run
 from .config import agreement_table, config_path, load_config, parse_config
 from .credentials import read_key
@@ -39,8 +42,8 @@ def activity_label(kind, raw):
     """Presentation only: assignment and rule matching always use the raw item."""
     text = raw
     if kind == "app":
-        text = re.sub(r"\.exe$", "", text, flags=re.IGNORECASE)
-        text = APP_NAMES.get(text.casefold(), re.sub(
+        text = re.sub(r"(?:\.(?:exe|root|app|desktop))+$", "", text, flags=re.IGNORECASE)
+        text = APP_NAMES.get(text.casefold().replace(" ", ""), re.sub(
             r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", " ", text))
     elif kind == "title":
         text = text.lstrip()
@@ -89,6 +92,20 @@ class Session:
         self.activity = None
         self.activity_buckets = None
         self.now = datetime.now(timezone.utc)
+        self._source = None
+        self._source_settings = None
+        self._source_lock = threading.Lock()
+
+    def invalidate_activity(self):
+        with self._source_lock:
+            self._source = self._source_settings = None
+
+    def activity_source(self):
+        with self._source_lock:
+            if self._source is None or self._source_settings != self.raw:
+                self._source_settings = deepcopy(self.raw)
+                self._source = SessionActivityWatch(dict(self.raw["activitywatch"]), ZoneInfo(self.raw["timezone"]))
+            return self._source
 
     def config(self):
         return parse_config(deepcopy(self.raw), self.path)
@@ -104,7 +121,7 @@ class Session:
         return setup.ActivityWatch(self.raw["activitywatch"]).check(self.activity_buckets)
 
     def read_activity(self, settings):
-        source = setup.ActivityWatch(settings)
+        source = self.activity_source()
         activity = setup.recent_activity(source, self.now)
         items = setup.activity_items(activity, self.now - timedelta(days=7), self.now)
         if not items:
@@ -218,7 +235,7 @@ class Session:
 
     def review(self, day):
         cfg = self.config()
-        return cfg, review_period(cfg, [day])[2]
+        return cfg, review_period(cfg, [day], source=self.activity_source())[2]
 
     def rates(self, apply=False):
         if apply:

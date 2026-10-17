@@ -1,4 +1,4 @@
-"""PyInstaller script entry; use absolute imports outside the package."""
+"""Packaged entry: no arguments opens the local web window; arguments use CLI."""
 
 from autohours.entry import main
 

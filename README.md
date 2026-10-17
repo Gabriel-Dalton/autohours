@@ -64,7 +64,7 @@ The last seven days' activity list contains private local window titles. Do not 
 
 ## Requirements
 
-- Windows, macOS or Linux. Terminal installs need Python 3.11 or newer and Tk for the window (often `python3-tk` on Linux). Downloads include Python and Tk.
+- Windows, macOS or Linux. Terminal installs need Python 3.11 or newer. Downloads include Python. Use a browser already on your computer.
 - [ActivityWatch](https://activitywatch.net/) running with its window and AFK watchers enabled.
 - A Clockify account for Clockify exports, or just a local folder for CSV.
 
@@ -72,19 +72,26 @@ The application uses only Python's standard library, plus the `tzdata` time zone
 
 ## Desktop app
 
-The app follows your system's light or dark appearance, with a sidebar for navigation and scrollable cards that fit larger text. Enter continues setup, including from the time zone picker; Escape closes dialogs.
+The app opens as its own window using Edge or Chrome already on Windows. On macOS it uses Chrome, Edge or Brave; on Linux it uses an installed Chromium browser. If an app window is unavailable, it opens in your usual browser. The local address is also printed when a terminal is available. No browser download, npm or build step is needed.
 
-- **Welcome and connection:** confirm the detected time zone, check ActivityWatch, and choose CSV or connect a Clockify key and workspace.
-- **Projects and rules:** search local apps, sites and titles, assign them to projects, and check how much of the last seven days is covered.
-- **Project agreements:** confirm billing, optional rates and currency, breaks, calls, rounding and caps for each project.
-- **Check and finish:** save and check settings, review yesterday's hours, hourly amounts and entries, then choose any separately approved writes or schedule.
-- **Home:** see the latest recorded run and open Review a day, Write a day, Projects and rules, or Nightly run. Settings opens your existing config.
-- **Review a day:** choose a date, inspect totals and the time table, open a private report, then preview a write before confirming it.
-- **Nightly run:** see the installed schedule's status and time, preview a new schedule, or turn it off.
+The screens follow your system's light or dark appearance, fit narrow windows and larger text, and support keyboard navigation. Enter activates the main action. Errors appear beside the answer that needs fixing. There are no separate pop-up dialogs or sidebar.
 
-Pick a project, then tick its apps, sites or titles. Confirm its description and agreement, check the review, and save. Applying Clockify rates, writing a day and enabling nightly writes each require separate approval. Spreadsheet setup skips the key and workspace steps.
+1. **Welcome:** see what autohours does, confirm the detected time zone, or search for a different city.
+2. **ActivityWatch:** check that the free recorder is running. When it is stopped, download and open it; the app checks again automatically. Choose a computer only when several are available. Website matching is optional.
+3. **Where timesheets go:** choose Clockify or a spreadsheet file that opens in Excel, Numbers or Google Sheets. The suggested file is `Documents/autohours-timesheet.csv`.
+4. **Connect Clockify:** open your Clockify settings and paste the API key into the local password field, or use a saved key. It is stored using the same private storage as the text wizard and never returned to the page.
+5. **Workspace:** choose your Clockify workspace. A single workspace is selected automatically. Spreadsheet setup skips both Clockify screens.
+6. **Projects:** add clients or projects inline, pick a project pill, and tick apps, websites or titles from your last seven days. Search the list and see the percentage assigned. The project menu changes names, descriptions and order. Clockify projects can be selected or created when settings are saved.
+7. **Billing:** choose how each client is billed, then optional hourly rates and currency, short breaks, calls, rounding and monthly limits. There is no assumed billing type or rate. Clockify suggests the workspace currency; spreadsheet currency starts empty. Save and continue saves everything automatically.
+8. **Check and finish:** see connection checks, compare Clockify rates, and review yesterday (or today when yesterday is empty). Writing a day, updating Clockify rates and enabling morning writes each have a separate inline confirmation. Finish opens Home.
 
-The home screen reviews any day, opens a full local HTML report, edits project rules and turns nightly runs on or off. Reports omit window titles. Long checks run in the background. Logs are private files in the user config folder under `logs/YYYY-MM-DD.log`, retained for 30 days. A nightly run writes yesterday only; it does not backfill missed days. Review again after a partial failure before retrying.
+**Home** shows the latest morning run for the settings file in use, including its time and outcome. Changing the date or choosing Yesterday or Today reviews that day automatically. Totals use hours and minutes, with hourly amounts when a rate is set. Unmatched activity has an Assign it shortcut; short pieces show the configured minimum. General calculation details are under How is this worked out? Open full report creates a private HTML file in system temp without window titles. Write this day first checks existing entries and monthly limits, then asks for confirmation. The tiles open Projects and billing, the morning schedule, your settings file, or setup again. Editing projects returns home after saving. Changing the morning switch or its inline time shows the exact schedule and requires confirmation.
+
+The web server binds only to `127.0.0.1` on a random port. Each launch has a private token, exact Host and Origin checks, and a policy that blocks external scripts, fonts and connections from the page. All assets ship with the app. Window titles stay on this computer. Keep the local address private. Close app stops the server immediately; closing the browser window stops it after 20 seconds without a heartbeat. The first window has 60 seconds to connect.
+
+Long operations run in request threads while the page shows progress. Writes are serialized and retain the existing protection against concurrent writers. Logs are private files in the user config folder under `logs/YYYY-MM-DD.log`, retained for 30 days. A morning run writes yesterday only; it does not backfill missed days. Review again after a partial failure before retrying.
+
+Activity and review screens show loading text while reading. Connection checks and day reviews can run together. The app caches ActivityWatch discovery for 30 seconds and completed days for up to five minutes within the session. Settings changes clear the cache; today's activity and write checks always fetch fresh data. Older logs without a settings-file identifier are omitted from Home because their source cannot be verified.
 
 ## Advanced: edit the config yourself
 

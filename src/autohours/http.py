@@ -1,7 +1,8 @@
 import json
+from http.client import HTTPConnection
 import time
 from urllib.error import HTTPError, URLError
-from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
+from urllib.request import HTTPHandler, HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 from .models import UserError
 
@@ -11,12 +12,36 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
+class LocalConnection(HTTPConnection):
+    def connect(self):
+        # On Windows, localhost often tries ::1 first and waits two seconds
+        # before reaching ActivityWatch's IPv4 listener. Keep IPv6-only setups
+        # working, without paying that failed connection cost on every request.
+        if self.host != "localhost":
+            return super().connect()
+        original = self.host
+        try:
+            self.host = "127.0.0.1"
+            try:
+                super().connect()
+            except OSError:
+                self.host = "::1"
+                super().connect()
+        finally:
+            self.host = original
+
+
+class LocalHTTPHandler(HTTPHandler):
+    def http_open(self, request):
+        return self.do_open(LocalConnection, request)
+
+
 class JsonHTTP:
     def __init__(self, base, headers=None, label="Service", local=False):
         self.base = base.rstrip("/")
         self.headers = headers or {}
         self.label = label
-        self.opener = build_opener(NoRedirect(), *([ProxyHandler({})] if local else []))
+        self.opener = build_opener(NoRedirect(), *([ProxyHandler({}), LocalHTTPHandler()] if local else []))
 
     def request(self, method, path, body=None):
         data = None if body is None else json.dumps(body).encode("utf-8")

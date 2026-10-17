@@ -2,16 +2,19 @@
 
 ## 0.4.0
 
-- Polish the desktop with light and dark palettes, readable fonts, a sidebar stepper, cards, clear focus states and clock icons.
-- Add detected time zones, searchable project activity, coverage progress, agreement cards and review summary totals.
-- Add home action tiles and installed schedule times, and let Enter continue from the time zone picker.
-- Add a Tk desktop wizard and home screen for reviewing days, editing projects and managing nightly runs.
-- Share setup, credential verification, activity choices, rule building, saving and review logic with the text wizard.
-- Keep slow desktop operations in background threads and require separate approval for external writes.
-- Open the window with no arguments, while preserving CLI commands and explicit dry runs.
-- Schedule pip and packaged installations using the correct executable and keep private dated logs for 30 days.
-- Add an optional build extra, Windows and macOS packaging, and a tag-triggered draft release workflow.
-- Put app downloads, terminal installation and agent-assisted setup first in the README.
+- Replace the Tk window with a modern local web app using bundled HTML, CSS and vanilla JavaScript, with no new runtime dependency or build step.
+- Open an app window in an installed browser, with a regular browser fallback and a printed local address.
+- Protect the loopback server with per-launch tokens, exact Host and Origin checks, security headers, an allowlisted static route table and heartbeat shutdown.
+- Add light and dark themes, responsive cards, keyboard navigation, visible focus, reduced motion, inline validation and confirmations.
+- Add automatic ActivityWatch checks, conditional download links, detected time zones, inline projects, searchable activity and coverage.
+- Require a billing choice, keep rates optional, suggest the verified workspace currency and save automatically before Check and finish.
+- Clean app name suffixes such as .Root and .exe without changing activity matching.
+- Add a home dashboard with day reviews, private HTML reports, project editing and separately approved morning schedules.
+- Keep setup, credentials, billing and config logic shared with the text wizard. Serialize writes and require fresh previews for rate changes, day writes and schedules.
+- Record written hours after overlap checks and show a concise recent-run summary.
+- Open the app with no arguments while preserving CLI commands and explicit dry runs.
+- Ship web assets in wheels and packaged apps, retain the icon generator, and keep unsigned downloads on draft releases for human review.
+- Test API security, setup parity, credential privacy, validation, confirmations, browser discovery and server lifetime with synthetic offline services.
 
 ## 0.3.0
 

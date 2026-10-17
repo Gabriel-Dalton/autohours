@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>autohours</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <header class="topbar">
+    <a class="brand" href="/" id="brand" aria-label="autohours home">
+      <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><rect width="32" height="32" rx="9" fill="currentColor"/><circle cx="16" cy="16" r="10" fill="none" stroke="white" stroke-width="2"/><path d="M16 9v7l5 3" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+      <span>autohours</span>
+    </a>
+    <span id="progress-label" class="muted"></span>
+    <button id="quit" class="text-button" type="button">Close app</button>
+  </header>
+  <progress id="progress" value="0" max="7" aria-label="Setup progress"></progress>
+  <main id="content" tabindex="-1">
+    <div id="toast" role="status" aria-live="polite" hidden></div>
+    <div id="page"><h1>Opening your timesheets...</h1><div class="skeleton" aria-label="Loading"></div></div>
+    <footer id="footer"></footer>
+  </main>
+  <p class="privacy-footer">Private by design. Your activity stays on this computer.</p>
+  <noscript>Enable JavaScript in this local window to use autohours.</noscript>
+</body>
+</html>

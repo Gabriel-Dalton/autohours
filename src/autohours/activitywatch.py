@@ -1,4 +1,9 @@
-from datetime import timedelta
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+from dataclasses import replace
+from datetime import datetime, time, timedelta, timezone
+import threading
+from time import monotonic
 from urllib.parse import quote, urlencode
 
 from .http import JsonHTTP
@@ -58,3 +63,75 @@ class ActivityWatch:
         window, afk, web = self.buckets
         return Activity(self._events(window, start, end), self._events(afk, start, end),
                         [e for bucket in web for e in self._events(bucket, start, end)])
+
+
+class SessionActivityWatch(ActivityWatch):
+    """Bounded, private preview cache. Writes always use a fresh source.
+
+    Completed local days expire after five minutes to allow imported/corrected
+    history to appear. Today is never cached. Discovery expires after 30 seconds.
+    """
+    def __init__(self, settings, zone, http=None):
+        super().__init__(settings, http)
+        self.zone = zone
+        self.lock = threading.RLock()
+        self.checked_at = float("-inf")
+        self.message = ""
+        self.days = {}
+
+    def check(self, buckets=None):
+        with self.lock:
+            if buckets is not None or monotonic() - self.checked_at >= 30:
+                previous = self.buckets
+                self.message = super().check(buckets)
+                if previous != self.buckets:
+                    self.days.clear()
+                self.checked_at = monotonic()
+            return self.message
+
+    def fetch(self, start, end):
+        with self.lock:
+            self.check()
+            window, afk, web = self.buckets
+            today = datetime.now(self.zone).date()
+            self.days = {key: value for key, value in self.days.items()
+                         if monotonic() - value[0] < 300 and key[0].astimezone(self.zone).date() < today}
+            ranges = []
+            cursor = start
+            while cursor < end:
+                midnight = datetime.combine(cursor.astimezone(self.zone).date() + timedelta(days=1), time(), self.zone).astimezone(timezone.utc)
+                stop = min(end, midnight)
+                ranges.append((cursor, stop))
+                cursor = stop
+            # Fetch adjacent missing days as one interval, including monthly cap
+            # history. Do not turn a month preview into thirty HTTP round trips.
+            groups = []
+            for key in ranges:
+                if key in self.days:
+                    continue
+                if groups and groups[-1][-1][1] == key[0]:
+                    groups[-1].append(key)
+                else:
+                    groups.append([key])
+            fetched = {}
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                for group in groups:
+                    jobs = [pool.submit(self._events, bucket, group[0][0], group[-1][1]) for bucket in (window, afk, *web)]
+                    rows = [job.result() for job in jobs]
+                    columns = (rows[0], rows[1], [event for events in rows[2:] for event in events])
+                    for left, right in group:
+                        activity = Activity(*[[replace(event, start=max(event.start, left), end=min(event.end, right))
+                                              for event in column if event.start < right and event.end > left]
+                                             for column in columns])
+                        fetched[(left, right)] = activity
+                        if right <= datetime.combine(today, time(), self.zone).astimezone(timezone.utc):
+                            self.days[(left, right)] = (monotonic(), activity)
+            result = Activity([], [], [])
+            for key in ranges:
+                activity = fetched[key] if key in fetched else self.days[key][1]
+                result.windows.extend(activity.windows)
+                result.afk.extend(activity.afk)
+                result.web.extend(activity.web)
+            while len(self.days) > 62:
+                self.days.pop(next(iter(self.days)))
+            return deepcopy(result)

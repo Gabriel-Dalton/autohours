@@ -2,11 +2,24 @@
 
 from pathlib import Path
 import struct
-import sys
 import zlib
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from autohours.theme import clock_pixels
+
+def clock_pixels(size, accent="#245bb5"):
+    """RGBA rounded square and clock face, independent of the app's UI."""
+    blue = tuple(bytes.fromhex(accent[1:]))
+    pixels = bytearray()
+    for y in range(size):
+        for x in range(size):
+            u, v = (x + .5) / size, (y + .5) / size
+            dx, dy = max(.20 - u, 0, u - .80), max(.20 - v, 0, v - .80)
+            inside = dx * dx + dy * dy <= .16 ** 2
+            radius = ((u - .5) ** 2 + (v - .5) ** 2) ** .5
+            face = .29 <= radius <= .335
+            hands = (.475 <= u <= .525 and .29 <= v <= .525) or (
+                .49 <= u <= .69 and .475 <= v <= .525)
+            pixels.extend((*((255, 255, 255) if face or hands else blue), 255 if inside else 0))
+    return bytes(pixels)
 
 
 def png(size):

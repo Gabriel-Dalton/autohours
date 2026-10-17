@@ -9,6 +9,7 @@ mac = sys.platform == "darwin"
 # Reproducible artwork from generate_icons.py, shared with the runtime clock.
 icon = root / "packaging" / ("autohours.icns" if mac else "autohours.ico")
 datas = [(str(root / "src/autohours/starter.toml"), "autohours")]
+datas += [(str(path), "autohours/web") for path in (root / "src/autohours/web").iterdir() if path.is_file()]
 if sys.platform == "win32":
     datas += collect_data_files("tzdata")
 a = Analysis([str(root / "packaging/launcher.py")], pathex=[str(root / "src")],

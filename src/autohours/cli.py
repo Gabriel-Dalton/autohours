@@ -107,10 +107,7 @@ def run(args):
 
 def _run(args):
     if args.command == "gui":
-        try:
-            from .gui import launch
-        except ImportError:
-            raise UserError("The desktop app needs Python with Tk support. Install Tk for your Python, or use the desktop download.") from None
+        from .webapp import launch
         return launch(args.config)
     if args.command == "setup":
         from .setup import setup
@@ -195,16 +192,21 @@ def _run(args):
             Path(args.html).write_text(html_review(result, config.projects, config.timezone, titles, verbose), encoding="utf-8")
             print(f"Review saved to {args.html}.")
         if args.command == "sync":
-            created, skipped = sync(destination, result.blocks, start, end, args.write)
+            summary = {}
+            if args.write:
+                print("Write phase started.")
+            created, skipped = sync(destination, result.blocks, start, end, args.write, summary)
             if args.write:
                 print(f"Created {created}, skipped {skipped} (already logged).")
+                print(f"Wrote {created} entries, {summary['hours']:.2f} h.")
             else:
                 print(f"Would create {created}, would skip {skipped} (already logged). Nothing written. Use --write to write.")
+                print(f"Ready to write: {created} entries, {summary['hours']:.2f} h.")
     return 0
 
 
-def review_period(config, dates, command="review"):
-    source = SOURCES["activitywatch"](config)
+def review_period(config, dates, command="review", source=None):
+    source = source or SOURCES["activitywatch"](config)
     start, end = date_range(dates, config.timezone)
     end = min(end, datetime.now(timezone.utc))
     if start >= end:

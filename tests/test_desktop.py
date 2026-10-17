@@ -1,8 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
-import threading
-import time
 
 import pytest
 
@@ -183,13 +181,12 @@ def test_partial_project_creation_is_not_duplicated_on_retry(tmp_path, services,
     assert len([1 for _, method, _, _ in services.calls if method == "POST"]) == 1
 
 
-def test_gui_dates_are_explicit_and_do_not_shift_at_midnight():
-    pytest.importorskip("tkinter")
-    from autohours.gui import App
-    assert App.valid_day("2026-10-16") == "2026-10-16"
+def test_web_dates_are_explicit_and_do_not_shift_at_midnight():
+    from autohours.webapp import valid_day
+    assert valid_day("2026-10-16") == "2026-10-16"
     for value in ("yesterday", "today", "2026-02-30", "20261016"):
         with pytest.raises(UserError):
-            App.valid_day(value)
+            valid_day(value)
 
 
 def test_agreements_validate_optional_values_and_preserve_call_rules():
@@ -244,6 +241,8 @@ def test_failed_unattended_command_is_logged_without_traceback(tmp_path, monkeyp
     assert entry.main(["--config", str(config), "sync", "yesterday", "--write"]) == 1
     text = next((tmp_path / "logs").glob("*.log")).read_text()
     assert "Error:" in text and "Run finished: needs attention" in text and "Traceback" not in text
+    assert "Run config: " + runlog.config_id(config) in text and "Run kind: nightly" in text
+    assert "Write phase started." not in text
 
 
 @pytest.mark.parametrize("platform", ["win32", "darwin", "linux"])
@@ -261,154 +260,3 @@ def test_windows_schedule_status_reads_disabled_flag(monkeypatch):
     monkeypatch.setattr(schedule.subprocess, "run", lambda *a, **kw: SimpleNamespace(returncode=0,
         stdout='<Task xmlns="urn:example"><Settings><Enabled>false</Enabled></Settings></Task>'))
     assert not schedule.enabled()
-
-
-@pytest.fixture
-def hidden_root():
-    tk = pytest.importorskip("tkinter")
-    try:
-        root = tk.Tk()
-        root.withdraw()
-    except tk.TclError:
-        pytest.skip("Tk or a graphical display is unavailable")
-    yield root
-    root.destroy()
-
-
-def test_hidden_window_builds_all_steps_and_home(hidden_root, tmp_path, monkeypatch):
-    from autohours.gui import App
-    value = session(tmp_path)
-    value.spaces = [{"id": "w1", "name": "Example workspace"}]
-    value.items = [(("app", "Editor"), 60)]
-    # Building a view must not call real HTTP or a scheduler.
-    monkeypatch.setattr(App, "work", lambda *a: None)
-    monkeypatch.setattr(App, "read_activity", lambda *args: None)
-    app = App(hidden_root, value)
-    for step in range(8):
-        app.show_step(step)
-        hidden_root.update_idletasks()
-        assert app.page.winfo_children()
-        assert app.default.cget("text") == ("Save settings" if step == 7 else "Check key" if step == 3 else "Continue")
-        assert len(app.nav_buttons) == 8
-        assert app.nav_buttons[step].cget("style") == "Current.Nav.TButton"
-    app.show_home()
-    hidden_root.update_idletasks()
-    assert len(app.nav_buttons) == 5
-    assert app.nightly_tile.cget("style") == "Tile.TButton"
-    app.focus_review()
-    assert app.day.get() and app.default.cget("text") == "Review a day"
-    app.focus_nightly()
-    assert app.default.cget("text") == "Preview schedule"
-
-
-def test_worker_keeps_tk_callbacks_on_main_thread(hidden_root, tmp_path, monkeypatch):
-    from autohours.gui import App
-    monkeypatch.setattr(setup, "detected_timezone", lambda: None)
-    app = App(hidden_root, session(tmp_path))
-    deadline = time.monotonic() + 3
-    while app.busy and time.monotonic() < deadline:
-        hidden_root.update()
-        time.sleep(0.01)
-    main_thread = threading.get_ident()
-    done = []
-    app.work(lambda: threading.get_ident(), lambda worker: done.append((worker, threading.get_ident())))
-    assert app.busy and app.status.get() == "Working..."
-    deadline = time.monotonic() + 3
-    while not done and time.monotonic() < deadline:
-        hidden_root.update()
-        time.sleep(0.01)
-    assert done and done[0][0] != main_thread and done[0][1] == main_thread
-    assert not app.busy
-    assert app.status.get() == ""
-
-
-@pytest.mark.parametrize("hosts", [["example-computer"], ["first", "second"]])
-def test_activity_step_checks_automatically_in_worker(hidden_root, tmp_path, monkeypatch, hosts):
-    from autohours.gui import App
-    value = session(tmp_path)
-    main_thread = threading.get_ident()
-    calls = []
-    def find_hosts():
-        calls.append(("hosts", threading.get_ident()))
-        return hosts
-    def check_activity():
-        calls.append(("activity", threading.get_ident()))
-        return "Window and away time available."
-    monkeypatch.setattr(value, "hosts", find_hosts)
-    monkeypatch.setattr(value, "check_buckets", check_activity)
-    monkeypatch.setattr(setup, "detected_timezone", lambda: None)
-    app = App(hidden_root, value)
-    def finish_work():
-        deadline = time.monotonic() + 3
-        while app.busy and time.monotonic() < deadline:
-            hidden_root.update()
-            time.sleep(0.01)
-        assert not app.busy
-    finish_work()
-    app.show_step(1)
-    assert app.busy and app.status.get() == "Working..."
-    assert "Checking ActivityWatch" in app.aw_label.cget("text")
-    finish_work()
-    assert tuple(app.host_box.cget("values")) == tuple(hosts)
-    assert all(worker != main_thread for name, worker in calls if name == "hosts")
-    if len(hosts) == 1:
-        assert app.host.get() == hosts[0]
-        assert value.raw["activitywatch"]["hostname"] == hosts[0]
-        assert app.aw_ready
-        assert [name for name, _ in calls] == ["hosts", "activity"]
-    else:
-        assert not app.aw_ready
-        assert "Select your computer" in app.aw_label.cget("text")
-        assert [name for name, _ in calls] == ["hosts"]
-    app.check_aw()
-    finish_work()
-    assert sum(name == "hosts" for name, _ in calls) == 2
-
-
-def test_activity_failure_and_footer_messages(hidden_root, tmp_path, monkeypatch):
-    from autohours.gui import App, messagebox
-    value = session(tmp_path)
-    monkeypatch.setattr(App, "work", lambda *args: None)
-    monkeypatch.setattr(App, "read_activity", lambda *args: None)
-    app = App(hidden_root, value)
-    assert app.status.get() == ""
-    app.show_step(1)
-    monkeypatch.setattr(messagebox, "showerror", lambda *args, **kwargs: None)
-    app.error(UserError("ActivityWatch is not running. Open ActivityWatch and try again."))
-    assert app.status.get() == "Needs attention"
-    assert "ActivityWatch is not running" in app.aw_label.cget("text")
-    assert any(child.cget("text") == "Download ActivityWatch"
-               for child in app.page.winfo_children() if child.winfo_class() == "TButton")
-    app.status.set("Settings saved.")
-    assert app.status.get() == "Settings saved."
-    app.show_step(0)
-    assert app.status.get() == ""
-
-
-def test_scrollbar_only_for_overflow_inside_content(hidden_root, tmp_path, monkeypatch):
-    from autohours.gui import App
-    monkeypatch.setattr(App, "work", lambda *args: None)
-    monkeypatch.setattr(App, "read_activity", lambda *args: None)
-    app = App(hidden_root, session(tmp_path))
-    assert app.scrollbar.master == app.canvas.master
-    assert app.scrollbar.master != app.footer.master
-    monkeypatch.setattr(app.canvas, "winfo_height", lambda: 500)
-    for height, visible in ((400, False), (500, False), (800, True), (400, False)):
-        monkeypatch.setattr(app.content, "winfo_reqheight", lambda: height)
-        app.update_scrollbar("0", "1" if height <= 500 else ".625")
-        assert bool(app.scrollbar.grid_info()) is visible
-
-
-@pytest.mark.parametrize("dark", [False, True])
-def test_nonprimary_button_styles_have_borders_and_states(hidden_root, dark):
-    from tkinter import ttk
-    from autohours import theme
-    colors = theme.apply(hidden_root, dark=dark)
-    style = ttk.Style(hidden_root)
-    for name in ("TButton", "Secondary.TButton", "Nav.TButton", "Current.Nav.TButton", "Tile.TButton"):
-        assert style.lookup(name, "relief") == "solid"
-        assert int(style.lookup(name, "borderwidth")) == 1
-        for state in ((), ("active",), ("pressed",)):
-            assert style.lookup(name, "bordercolor", state) == colors["secondary_border"]
-        assert style.lookup(name, "background", ("active",)) != style.lookup(name, "background", ("pressed",))
-    assert style.lookup("Primary.TButton", "relief") == "flat"

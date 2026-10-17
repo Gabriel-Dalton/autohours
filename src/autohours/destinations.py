@@ -156,9 +156,10 @@ class CSV:
             return result
 
 
-def sync(destination, blocks, start, end, write=False):
+def sync(destination, blocks, start, end, write=False, summary=None):
     existing = destination.existing(start, end)
     created = skipped = 0
+    minutes = 0
     for block in blocks:
         interval = block.start, block.end
         if any(overlaps(interval, old) for old in existing):
@@ -168,4 +169,7 @@ def sync(destination, blocks, start, end, write=False):
             destination.create(block)
         existing.append(interval)
         created += 1
+        minutes += block.minutes
+    if summary is not None:
+        summary.update(entries=created, skipped=skipped, hours=minutes / 60)
     return created, skipped
