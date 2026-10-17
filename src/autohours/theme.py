@@ -6,12 +6,12 @@ import tkinter as tk
 from tkinter import font, ttk
 
 
-LIGHT = dict(page="#f3f5f9", card="#ffffff", border="#c5cdd9", text="#172438",
+LIGHT = dict(page="#f3f5f9", card="#ffffff", border="#c5cdd9", secondary_border="#78869a", text="#172438",
              muted="#526176", accent="#245bb5", accent_hover="#194a9a",
              accent_pressed="#133c80", on_accent="#ffffff", accent_text="#245bb5",
              focus="#245bb5", success="#176331", warning="#805000", danger="#b42332",
              stripe="#edf1f7", selected="#e2ecff", indicator_mark="#ffffff")
-DARK = dict(page="#111827", card="#1b2535", border="#65748b", text="#f3f6fc",
+DARK = dict(page="#111827", card="#1b2535", border="#65748b", secondary_border="#78869a", text="#f3f6fc",
             muted="#b4c1d5", accent="#245bb5", accent_hover="#194a9a",
             accent_pressed="#133c80", on_accent="#ffffff", accent_text="#9ec5ff",
             focus="#9ec5ff", success="#81d9a0", warning="#f7cc77", danger="#ff9da6",
@@ -106,16 +106,25 @@ def apply(root, dark=None):
         style.configure(f"{state.title()}.TLabel", foreground=colors[state], padding=(8, 8))
     for name in ("TButton", "Secondary.TButton", "Nav.TButton", "Current.Nav.TButton", "Tile.TButton", "Primary.TButton"):
         primary = name == "Primary.TButton"
-        style.configure(name, padding=(14, 9), borderwidth=1, relief="flat", focusthickness=2,
+        style.configure(name, padding=(14, 9), borderwidth=1, relief="flat" if primary else "solid", focusthickness=2,
                         focuscolor=colors["on_accent" if primary else "focus"],
-                        background=colors["accent" if primary else "card"],
+                        background=colors["accent" if primary else "stripe"],
                         foreground=colors["on_accent" if primary else "text"])
         style.map(name, background=[("disabled", colors["stripe"]),
                                    ("pressed", colors["accent_pressed" if primary else "selected"]),
-                                   ("active", colors["accent_hover" if primary else "stripe"])],
+                                   ("active", colors["accent_hover" if primary else "card"])],
                   foreground=[("disabled", colors["muted"])],
                   bordercolor=[("focus", colors["focus"])])
-    style.configure("Nav.TButton", anchor="w", padding=(10, 10), borderwidth=0)
+        if not primary:
+            for option in ("bordercolor", "lightcolor", "darkcolor"):
+                style.configure(name, **{option: colors["secondary_border"]})
+                style.map(name, **{option: [("focus", colors["focus"]), ("!focus", colors["secondary_border"])]})
+        else:
+            # Do not inherit the secondary edges from the base TButton style.
+            style.configure(name, bordercolor=colors["border"])
+            for option in ("lightcolor", "darkcolor"):
+                style.map(name, **{option: [("focus", colors["border"]), ("!focus", colors["border"])]})
+    style.configure("Nav.TButton", anchor="w", padding=(10, 10))
     style.configure("Current.Nav.TButton", font=(family, 11, "bold"), background=colors["selected"])
     style.configure("Tile.TButton", anchor="w", padding=(18, 22), font=(family, 13, "bold"))
     for name in ("TEntry", "TCombobox"):

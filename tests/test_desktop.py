@@ -295,3 +295,94 @@ def test_worker_keeps_tk_callbacks_on_main_thread(hidden_root, tmp_path, monkeyp
         time.sleep(0.01)
     assert done and done[0][0] != main_thread and done[0][1] == main_thread
     assert not app.busy
+    assert app.status.get() == ""
+
+
+@pytest.mark.parametrize("hosts", [["example-computer"], ["first", "second"]])
+def test_activity_step_checks_automatically_in_worker(hidden_root, tmp_path, monkeypatch, hosts):
+    from autohours.gui import App
+    value = session(tmp_path)
+    main_thread = threading.get_ident()
+    calls = []
+    def find_hosts():
+        calls.append(("hosts", threading.get_ident()))
+        return hosts
+    def check_activity():
+        calls.append(("activity", threading.get_ident()))
+        return "Window and away time available."
+    monkeypatch.setattr(value, "hosts", find_hosts)
+    monkeypatch.setattr(value, "check_activity", check_activity)
+    monkeypatch.setattr(setup, "detected_timezone", lambda: None)
+    app = App(hidden_root, value)
+    def finish_work():
+        deadline = time.monotonic() + 3
+        while app.busy and time.monotonic() < deadline:
+            hidden_root.update()
+            time.sleep(0.01)
+        assert not app.busy
+    finish_work()
+    app.show_step(1)
+    assert app.busy and app.status.get() == "Working..."
+    assert "Checking ActivityWatch" in app.aw_label.cget("text")
+    finish_work()
+    assert tuple(app.host_box.cget("values")) == tuple(hosts)
+    assert all(worker != main_thread for _, worker in calls)
+    if len(hosts) == 1:
+        assert app.host.get() == hosts[0]
+        assert value.raw["activitywatch"]["hostname"] == hosts[0]
+        assert app.aw_ready
+        assert [name for name, _ in calls] == ["hosts", "activity"]
+    else:
+        assert not app.aw_ready
+        assert "Select your computer" in app.aw_label.cget("text")
+        assert [name for name, _ in calls] == ["hosts"]
+    app.check_aw()
+    finish_work()
+    assert sum(name == "hosts" for name, _ in calls) == 2
+
+
+def test_activity_failure_and_footer_messages(hidden_root, tmp_path, monkeypatch):
+    from autohours.gui import App, messagebox
+    value = session(tmp_path)
+    monkeypatch.setattr(App, "work", lambda *args: None)
+    app = App(hidden_root, value)
+    assert app.status.get() == ""
+    app.show_step(1)
+    monkeypatch.setattr(messagebox, "showerror", lambda *args, **kwargs: None)
+    app.error(UserError("ActivityWatch is not running. Open ActivityWatch and try again."))
+    assert app.status.get() == "Needs attention"
+    assert "ActivityWatch is not running" in app.aw_label.cget("text")
+    assert any(child.cget("text") == "Download ActivityWatch"
+               for child in app.page.winfo_children() if child.winfo_class() == "TButton")
+    app.status.set("Settings saved.")
+    assert app.status.get() == "Settings saved."
+    app.show_step(0)
+    assert app.status.get() == ""
+
+
+def test_scrollbar_only_for_overflow_inside_content(hidden_root, tmp_path, monkeypatch):
+    from autohours.gui import App
+    monkeypatch.setattr(App, "work", lambda *args: None)
+    app = App(hidden_root, session(tmp_path))
+    assert app.scrollbar.master == app.canvas.master
+    assert app.scrollbar.master != app.footer.master
+    monkeypatch.setattr(app.canvas, "winfo_height", lambda: 500)
+    for height, visible in ((400, False), (500, False), (800, True), (400, False)):
+        monkeypatch.setattr(app.content, "winfo_reqheight", lambda: height)
+        app.update_scrollbar("0", "1" if height <= 500 else ".625")
+        assert bool(app.scrollbar.grid_info()) is visible
+
+
+@pytest.mark.parametrize("dark", [False, True])
+def test_nonprimary_button_styles_have_borders_and_states(hidden_root, dark):
+    from tkinter import ttk
+    from autohours import theme
+    colors = theme.apply(hidden_root, dark=dark)
+    style = ttk.Style(hidden_root)
+    for name in ("TButton", "Secondary.TButton", "Nav.TButton", "Current.Nav.TButton", "Tile.TButton"):
+        assert style.lookup(name, "relief") == "solid"
+        assert int(style.lookup(name, "borderwidth")) == 1
+        for state in ((), ("active",), ("pressed",)):
+            assert style.lookup(name, "bordercolor", state) == colors["secondary_border"]
+        assert style.lookup(name, "background", ("active",)) != style.lookup(name, "background", ("pressed",))
+    assert style.lookup("Primary.TButton", "relief") == "flat"

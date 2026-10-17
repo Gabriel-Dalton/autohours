@@ -19,6 +19,8 @@ def drain(root, app):
 
 def test_timezone_detected_enter_and_back_navigation(hidden_root, tmp_path, monkeypatch):
     monkeypatch.setattr(setup, "detected_timezone", lambda: "America/Vancouver")
+    monkeypatch.setattr(desktop.Session, "hosts", lambda _: ["example-computer"])
+    monkeypatch.setattr(desktop.Session, "check_activity", lambda _: "Window and away time available.")
     app = gui.App(hidden_root, session(tmp_path))
     drain(hidden_root, app)
     assert app.zone.get() == "America/Vancouver"
@@ -26,6 +28,7 @@ def test_timezone_detected_enter_and_back_navigation(hidden_root, tmp_path, monk
     app.change_zone()
     assert app.enter(SimpleNamespace(widget=app.zone_box)) == "break"
     assert app.step == 1 and app.session.raw["timezone"] == "America/Vancouver"
+    drain(hidden_root, app)
     assert app.nav_buttons[0].cget("text").startswith("✓")
     assert "disabled" in app.nav_buttons[2].state()
     app.nav_buttons[0].invoke()

@@ -18,6 +18,12 @@ def contrast(first, second):
 
 
 @pytest.mark.parametrize("palette", [theme.LIGHT, theme.DARK])
+def test_secondary_border_contrast(palette):
+    for background in ("card", "page"):
+        assert contrast(palette["secondary_border"], palette[background]) >= 3
+
+
+@pytest.mark.parametrize("palette", [theme.LIGHT, theme.DARK])
 def test_palette_contrast_for_text_states_and_focus(palette):
     for background in ("page", "card", "stripe", "selected"):
         for foreground in ("text", "muted", "accent_text", "success", "warning", "danger"):

@@ -55,24 +55,27 @@ class App:
         screen_height = max(480, root.winfo_screenheight() - 100)
         self.root.geometry(f"{min(self.px(1040), screen_width)}x{min(self.px(760), screen_height)}")
         self.root.minsize(min(self.px(860), screen_width), min(self.px(540), screen_height))
-        self.status = tk.StringVar(value="Ready")
+        self.status = tk.StringVar(value="")
         self.sidebar = ttk.Frame(root, padding=(12, 24), width=self.px(220))
         self.sidebar.pack(side="left", fill="y")
         self.sidebar.pack_propagate(False)
         main = ttk.Frame(root, style="Page.TFrame")
         main.pack(fill="both", expand=True)
-        self.canvas = tk.Canvas(main, highlightthickness=0, background=self.colors["page"])
-        scrollbar = ttk.Scrollbar(main, orient="vertical", command=self.canvas.yview)
-        scrollbar.pack(side="right", fill="y")
-        self.canvas.pack(fill="both", expand=True)
-        self.canvas.configure(yscrollcommand=scrollbar.set)
+        viewport = ttk.Frame(main, style="Page.TFrame", padding=(12, 12))
+        viewport.pack(fill="both", expand=True)
+        viewport.columnconfigure(0, weight=1)
+        viewport.rowconfigure(0, weight=1)
+        self.canvas = tk.Canvas(viewport, highlightthickness=0, background=self.colors["page"])
+        self.scrollbar = ttk.Scrollbar(viewport, orient="vertical", command=self.canvas.yview)
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        self.canvas.configure(yscrollcommand=self.update_scrollbar)
         self.content = ttk.Frame(self.canvas, padding=(20, 24), style="Page.TFrame")
         self.page_id = self.canvas.create_window((0, 0), window=self.content, anchor="nw")
         self.content.bind("<Configure>", lambda _: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
         self.canvas.bind("<Configure>", self.resize)
         # Create footer controls after the page so Tab follows the visual order.
         self.footer = ttk.Frame(main, padding=(16, 12))
-        self.footer.pack(side="bottom", fill="x", before=self.canvas)
+        self.footer.pack(side="bottom", fill="x", before=viewport)
         root.bind("<FocusIn>", self.reveal_focus, add=True)
         root.bind("<Return>", self.enter)
         root.bind("<MouseWheel>", self.scroll, add=True)
@@ -86,6 +89,13 @@ class App:
 
     def px(self, value):
         return round(value * self.scale)
+
+    def update_scrollbar(self, first, last):
+        self.scrollbar.set(first, last)
+        if self.content.winfo_reqheight() > self.canvas.winfo_height():
+            self.scrollbar.grid(row=0, column=1, sticky="ns")
+        else:
+            self.scrollbar.grid_remove()
 
     def resize(self, event):
         width = min(event.width, self.px(760))
@@ -125,6 +135,7 @@ class App:
         return "break"
 
     def error(self, exc):
+        self.status.set("Needs attention")
         message = str(exc) if isinstance(exc, (UserError, ValueError)) else (
             "That action could not finish. Check your connection and settings, then try again. "
             "Review the day again before retrying a write.")
@@ -165,7 +176,7 @@ class App:
             self.busy = False
             self.root.after_cancel(self.spinner_after)
             self.spinner.configure(text="")
-            self.status.set("Ready" if ok else "Needs attention")
+            self.status.set("" if ok else "Needs attention")
             for widget, previous in states:
                 if widget.winfo_exists():
                     widget.state(["!disabled", *previous])
@@ -180,6 +191,7 @@ class App:
         self.spinner_after = self.root.after(120, lambda: self.animate_work(frame + 1))
 
     def clear(self, heading, subtitle=""):
+        self.status.set("")
         for parent in (self.content, self.footer):
             for child in parent.winfo_children():
                 child.destroy()
@@ -287,6 +299,8 @@ class App:
         self.build_footer("Finish" if number == 7 and self.saved else "Save settings" if number == 7 else
                           "Check key" if number == 3 and not self.session.http else "Continue",
                           self.primary, self.back if number else None)
+        if number == 1:
+            self.check_aw()
         if number == 0 and not self.zone_initialized:
             self.zone_initialized = True
             def detect():
@@ -348,6 +362,7 @@ class App:
 
     def check_aw(self):
         self.aw_ready = False
+        self.aw_label.configure(text="Checking ActivityWatch...", style="Warning.TLabel")
         self.session.raw["activitywatch"]["use_web"] = self.web.get()
         def found(hosts):
             self.host_box.configure(values=hosts)
