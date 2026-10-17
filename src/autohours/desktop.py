@@ -5,13 +5,15 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 import io
 import os
+import plistlib
 from pathlib import Path
 import tempfile
 import tomllib
 import subprocess
 import sys
+from xml.etree import ElementTree
 
-from . import setup
+from . import schedule, setup
 from .cli import parser, review_period, run
 from .config import agreement_table, config_path, load_config, parse_config
 from .credentials import read_key
@@ -224,3 +226,28 @@ def open_settings(path):
     else:
         command = ["open", "-t", str(path)] if sys.platform == "darwin" else ["xdg-open", str(path)]
         subprocess.run(command, check=True, capture_output=True)
+
+
+def nightly_status():
+    """Read the installed job's time for display, without changing its schedule."""
+    if not schedule.enabled():
+        return "Off"
+    try:
+        if sys.platform == "win32":
+            result = subprocess.run(["schtasks", "/Query", "/TN", schedule.TASK, "/XML"],
+                                    capture_output=True, text=True, **schedule.hidden_console())
+            if result.returncode:
+                return "On (time unavailable)"
+            root = ElementTree.fromstring(result.stdout)
+            starts = [node.text for node in root.iter() if node.tag.rsplit("}", 1)[-1] == "StartBoundary"]
+            at = datetime.fromisoformat(starts[0]).strftime("%H:%M") if len(starts) == 1 else None
+        elif sys.platform == "darwin":
+            path = Path.home() / "Library/LaunchAgents" / (schedule.LABEL + ".plist")
+            interval = plistlib.loads(path.read_bytes())["StartCalendarInterval"]
+            at = f"{interval['Hour']:02}:{interval['Minute']:02}"
+        else:
+            lines = [line.split() for line in schedule.read_crontab().splitlines() if line.endswith(schedule.MARKER)]
+            at = f"{int(lines[0][1]):02}:{int(lines[0][0]):02}" if len(lines) == 1 else None
+        return "On at " + schedule.clock(at) if at else "On (time unavailable)"
+    except (OSError, ValueError, KeyError, IndexError, TypeError, ElementTree.ParseError):
+        return "On (time unavailable)"

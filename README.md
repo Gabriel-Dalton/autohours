@@ -70,7 +70,17 @@ The last seven days' activity list contains private local window titles. Do not 
 
 The application uses only Python's standard library, plus the `tzdata` time zone package, which is installed automatically on Windows. pytest is for development only. PyInstaller is only in the optional `build` extra. Wayland desktop restrictions can prevent ActivityWatch from capturing window titles; check its dashboard before setup.
 
-## In the desktop app
+## Desktop app
+
+The app follows your system's light or dark appearance, with a sidebar for navigation and scrollable cards that fit larger text. Enter continues setup, including from the time zone picker; Escape closes dialogs.
+
+- **Welcome and connection:** confirm the detected time zone, check ActivityWatch, and choose CSV or connect a Clockify key and workspace.
+- **Projects and rules:** search local apps, sites and titles, assign them to projects, and check how much of the last seven days is covered.
+- **Project agreements:** confirm billing, optional rates and currency, breaks, calls, rounding and caps for each project.
+- **Check and finish:** save and check settings, review yesterday's hours, hourly amounts and entries, then choose any separately approved writes or schedule.
+- **Home:** see the latest recorded run and open Review a day, Write a day, Projects and rules, or Nightly run. Settings opens your existing config.
+- **Review a day:** choose a date, inspect totals and the time table, open a private report, then preview a write before confirming it.
+- **Nightly run:** see the installed schedule's status and time, preview a new schedule, or turn it off.
 
 Pick a project, then tick its apps, sites or titles. Confirm its description and agreement, check the review, and save. Applying Clockify rates, writing a day and enabling nightly writes each require separate approval. Spreadsheet setup skips the key and workspace steps.
 

@@ -2,6 +2,9 @@
 
 ## 0.4.0
 
+- Polish the desktop with light and dark palettes, readable fonts, a sidebar stepper, cards, clear focus states and clock icons.
+- Add detected time zones, searchable project activity, coverage progress, agreement cards and review summary totals.
+- Add home action tiles and installed schedule times, and let Enter continue from the time zone picker.
 - Add a Tk desktop wizard and home screen for reviewing days, editing projects and managing nightly runs.
 - Share setup, credential verification, activity choices, rule building, saving and review logic with the text wizard.
 - Keep slow desktop operations in background threads and require separate approval for external writes.

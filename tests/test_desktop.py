@@ -264,15 +264,27 @@ def test_hidden_window_builds_all_steps_and_home(hidden_root, tmp_path, monkeypa
         app.show_step(step)
         hidden_root.update_idletasks()
         assert app.page.winfo_children()
-        assert app.default.cget("text") == ("Finish" if step == 7 else "Next")
+        assert app.default.cget("text") == ("Save settings" if step == 7 else "Check key" if step == 3 else "Continue")
+        assert len(app.nav_buttons) == 8
+        assert app.nav_buttons[step].cget("style") == "Current.Nav.TButton"
     app.show_home()
     hidden_root.update_idletasks()
+    assert len(app.nav_buttons) == 5
+    assert app.nightly_tile.cget("style") == "Tile.TButton"
+    app.focus_review()
     assert app.day.get() and app.default.cget("text") == "Review a day"
+    app.focus_nightly()
+    assert app.default.cget("text") == "Preview schedule"
 
 
-def test_worker_keeps_tk_callbacks_on_main_thread(hidden_root, tmp_path):
+def test_worker_keeps_tk_callbacks_on_main_thread(hidden_root, tmp_path, monkeypatch):
     from autohours.gui import App
+    monkeypatch.setattr(setup, "detected_timezone", lambda: None)
     app = App(hidden_root, session(tmp_path))
+    deadline = time.monotonic() + 3
+    while app.busy and time.monotonic() < deadline:
+        hidden_root.update()
+        time.sleep(0.01)
     main_thread = threading.get_ident()
     done = []
     app.work(lambda: threading.get_ident(), lambda worker: done.append((worker, threading.get_ident())))

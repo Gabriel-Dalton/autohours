@@ -6,7 +6,7 @@ from PyInstaller.utils.hooks import collect_data_files
 
 root = Path(SPECPATH).parent
 mac = sys.platform == "darwin"
-# Optional icon placeholder: add autohours.ico or autohours.icns here later.
+# Reproducible artwork from generate_icons.py, shared with the runtime clock.
 icon = root / "packaging" / ("autohours.icns" if mac else "autohours.ico")
 datas = [(str(root / "src/autohours/starter.toml"), "autohours")]
 if sys.platform == "win32":
@@ -16,11 +16,11 @@ a = Analysis([str(root / "packaging/launcher.py")], pathex=[str(root / "src")],
              runtime_hooks=[], excludes=[], noarchive=False)
 pyz = PYZ(a.pure)
 options = dict(name="autohours", console=False, debug=False, strip=False, upx=False,
-               icon=str(icon) if icon.exists() else None, disable_windowed_traceback=True)
+               icon=str(icon), disable_windowed_traceback=True)
 if mac:
     exe = EXE(pyz, a.scripts, [], exclude_binaries=True, **options)
     collection = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name="autohours")
-    app = BUNDLE(collection, name="autohours.app", icon=str(icon) if icon.exists() else None,
+    app = BUNDLE(collection, name="autohours.app", icon=str(icon),
                  bundle_identifier="org.autohours.desktop",
                  info_plist={"NSHighResolutionCapable": True, "CFBundleShortVersionString": "0.4.0"})
 else:
