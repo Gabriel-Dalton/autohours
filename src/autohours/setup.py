@@ -147,7 +147,8 @@ def detected_timezone():
                  "India Standard Time": "Asia/Kolkata", "China Standard Time": "Asia/Shanghai",
                  "Tokyo Standard Time": "Asia/Tokyo", "AUS Eastern Standard Time": "Australia/Sydney",
                  "E. Australia Standard Time": "Australia/Brisbane", "New Zealand Standard Time": "Pacific/Auckland"}
-        result = subprocess.run(["tzutil", "/g"], capture_output=True, text=True)
+        from .schedule import hidden_console
+        result = subprocess.run(["tzutil", "/g"], capture_output=True, text=True, **hidden_console())
         if result.returncode == 0:
             candidates.append(zones.get(result.stdout.strip(), ""))
     else:
@@ -183,6 +184,72 @@ def ask_timezone(p):
 
 def domain_rule(domain):
     return r"^https?://" + re.escape(domain) + r"(?::\d+)?(?:[/?#]|$)"
+
+
+def item_rule(kind, text):
+    """Escape a locally selected item, never treating its text as a regex."""
+    return domain_rule(text) if kind == "url" else "^" + re.escape(text) + "$" if kind == "app" else re.escape(text)
+
+
+def clockify_http(key):
+    return JsonHTTP("https://api.clockify.me/api/v1", {"X-Api-Key": valid_key(key)}, "Clockify")
+
+
+def verify_key(key):
+    http = clockify_http(key)
+    http.request("GET", "/user")
+    return http
+
+
+def workspaces(http):
+    rows = http.request("GET", "/workspaces")
+    if not rows:
+        raise UserError("No Clockify workspaces found. Create one in Clockify and try again.")
+    return rows
+
+
+def remote_projects(http, workspace):
+    base = "/workspaces/" + quote(workspace, safe="") + "/projects"
+    return Clockify({}, [], http)._pages(base, {"archived": "false"})
+
+
+def activity_hosts(buckets):
+    return sorted(b[len("aw-watcher-window_"):] for b in buckets if b.startswith("aw-watcher-window_"))
+
+
+def recent_activity(source, now):
+    activity = source.fetch(now - timedelta(days=7), now)
+    if not activity.windows or not activity.afk:
+        raise UserError("No recent window or AFK activity found. Let ActivityWatch record some work, then try again.")
+    return activity
+
+
+def coverage(activity, config, start, end):
+    slices = active_slices(activity, config.projects, start, end)
+    return (sum(s.minutes for s in slices if s.project is not None), sum(s.minutes for s in slices))
+
+
+def save_settings(collected, output=print):
+    """Save a validated snapshot after the caller has obtained approval."""
+    path, original, text, key, http, pending, raw = collected
+    parse_config(tomllib.loads(text), path)
+    current = path.read_text(encoding="utf-8") if path.exists() else None
+    if current != original:
+        raise UserError("The config changed during setup. Nothing overwritten; run setup again.")
+    if key:
+        save_key(key, output)
+    for name in pending:
+        base = "/workspaces/" + quote(raw["destination"]["workspace"], safe="") + "/projects"
+        rows = remote_projects(http, raw["destination"]["workspace"])
+        if any(r["name"] == name for r in rows):
+            raise UserError(f"Clockify already has a project named '{name}'. Run setup again and select it.")
+        row = next(r for r in raw["projects"] if r["name"] == name)
+        http.request("POST", base, {"name": name, "isPublic": True,
+                     "billable": row["agreement"]["billing"] != "none", "color": "#2196F3"})
+        output(f"Created Clockify project '{safe(name)}'. It remains there if you quit later.")
+    atomic_write(path, text)
+    output(f"Saved {path}.")
+    return load_config(path)
 
 
 def activity_items(activity, start, end):
@@ -237,7 +304,7 @@ def picked_rules(p, items, name):
                     raise ValueError("Use a distinctive word or phrase contained in this title.")
                 return value
             text = p.ask("Confirm a distinctive keyword or phrase for this project", title_keyword(text, name), keyword)
-        rule = domain_rule(text) if kind == "url" else "^" + re.escape(text) + "$" if kind == "app" else re.escape(text)
+        rule = item_rule(kind, text)
         if rule not in rules[kind]:
             rules[kind].append(rule)
     return {k: v for k, v in rules.items() if v}
@@ -283,7 +350,7 @@ def project_text(row):
     text = "\n[[projects]]\n"
     text += "".join(f"{key} = {toml_value(value)}\n" for key, value in row.items() if key != "agreement")
     text += "[projects.agreement]\n"
-    return text + "".join(f"{key} = {toml_value(value)}\n" for key, value in row["agreement"].items())
+    return text + "".join(f"{key} = {toml_value(value)}\n" for key, value in row.get("agreement", {}).items())
 
 
 def config_text(raw):
@@ -292,6 +359,17 @@ def config_text(raw):
         if table in raw:
             text += f"\n[{table}]\n" + "".join(f"{k} = {toml_value(v)}\n" for k, v in raw[table].items())
     return text + "".join(project_text(p) for p in raw["projects"])
+
+
+def agreement_summary(row, blocks):
+    agreement = row.agreement
+    rate = f"{agreement['rate']:.2f} {agreement.get('currency', '(currency not set)')}/h" if "rate" in agreement else "rate not set"
+    return (f"{row.name}: {row.description}; {'billable' if row.billable else 'not billed'}; "
+            f"{agreement.get('billing', 'billing not set')}; {rate}; "
+            f"breaks up to {agreement['count_breaks_up_to_minutes']} min; "
+            f"away calls {'count' if agreement['count_calls_when_away'] else 'do not count'}; "
+            f"rounding {agreement.get('round_to_minutes', blocks['round_to_minutes'])} min ({agreement['rounding']}); "
+            f"monthly cap {agreement.get('monthly_cap_hours', 'none')} hours")
 
 
 def append_projects(original, raw, initial_count):
@@ -328,7 +406,7 @@ class Wizard:
         while True:
             try:
                 buckets = self.cached(("buckets", settings["url"]), lambda: source.http.request("GET", "/buckets/"))
-                hosts = sorted(b[len("aw-watcher-window_"):] for b in buckets if b.startswith("aw-watcher-window_"))
+                hosts = activity_hosts(buckets)
                 if not settings.get("hostname") and hosts:
                     settings["hostname"] = hosts[p.choose("Which computer's activity?", hosts)] if len(hosts) > 1 else hosts[0]
                 p.say(source.check())
@@ -347,7 +425,7 @@ class Wizard:
         key = ""
         if existing:
             try:
-                self.cached(("key", existing), lambda: self.http(existing).request("GET", "/user"))
+                self.cached(("key", existing), lambda: verify_key(existing))
                 if p.yes("A saved CLOCKIFY_API_KEY is valid. Keep it?", True):
                     key = existing
             except UserError:
@@ -357,7 +435,7 @@ class Wizard:
                   "Paste it only at this hidden prompt, never in chat. It will be saved separately when you confirm setup.")
             candidate = p.ask("Clockify API key (hidden)", secret=True, validate=valid_key)
             try:
-                self.cached(("key", candidate), lambda: self.http(candidate).request("GET", "/user"))
+                self.cached(("key", candidate), lambda: verify_key(candidate))
                 key = candidate
             except UserError:
                 p.say("That key could not be verified. Check it and your connection, then retry or type quit.")
@@ -365,7 +443,7 @@ class Wizard:
 
     @staticmethod
     def http(key):
-        return JsonHTTP("https://api.clockify.me/api/v1", {"X-Api-Key": key}, "Clockify")
+        return clockify_http(key)
 
     def collect(self):
         p = self.p
@@ -401,7 +479,7 @@ class Wizard:
                 raw["destination"]["path"] = p.ask("Where should the CSV file be saved?", str(Path.home() / "timesheet.csv"), csv_path)
         if raw["destination"]["type"] == "clockify":
             key, http = self.clockify()
-            spaces = self.cached(("workspaces", key), lambda: http.request("GET", "/workspaces"))
+            spaces = self.cached(("workspaces", key), lambda: workspaces(http))
             if not spaces:
                 raise UserError("No Clockify workspaces found. Create one in Clockify and run setup again.")
             if adding:
@@ -419,7 +497,7 @@ class Wizard:
                 source = self.source(raw["activitywatch"])
         p.say("The next list shows private local window titles from the last 7 days. Nothing is uploaded. "
               "Do not share terminal logs or screenshots without reviewing them.")
-        activity = self.cached(("activity", json.dumps(raw["activitywatch"], sort_keys=True)), lambda: source.fetch(start, self.now))
+        activity = self.cached(("activity", json.dumps(raw["activitywatch"], sort_keys=True)), lambda: recent_activity(source, self.now))
         if not activity.windows or not activity.afk:
             raise UserError("No recent window or AFK activity found. Let ActivityWatch record some work, then run setup again.")
         items = activity_items(activity, start, self.now)
@@ -441,7 +519,7 @@ class Wizard:
             row = {"name": name, **picked_rules(p, items, name)}
             if http:
                 base = "/workspaces/" + quote(raw["destination"]["workspace"], safe="") + "/projects"
-                remote = self.cached(("projects", key, base), lambda: Clockify({}, [], http)._pages(base, {"archived": "false"}))
+                remote = self.cached(("projects", key, base), lambda: remote_projects(http, raw["destination"]["workspace"]))
                 while True:
                     choice = p.choose("Which Clockify project?", [r["name"] + " (" + r["id"] + ")" for r in remote] + ["Create a new project"])
                     if choice < len(remote):
@@ -460,9 +538,7 @@ class Wizard:
             row["agreement"] = ask_agreement(p)
             raw["projects"].append(row)
             cfg = parse_config(deepcopy(raw), path)
-            slices = active_slices(activity, cfg.projects, start, self.now)
-            total = sum(s.minutes for s in slices)
-            covered = sum(s.minutes for s in slices if s.project is not None)
+            covered, total = coverage(activity, cfg, start, self.now)
             p.say(f"Rules now cover {covered:.1f} of {total:.1f} active minutes ({covered / total * 100 if total else 0:.1f}%) in the last 7 days. First matching project wins.")
         if not self.explicit and original is None:
             choice = p.choose("Where should settings be saved?", [f"User config folder: {user_config_dir()}", f"Current folder: {Path.cwd()}"])
@@ -472,14 +548,7 @@ class Wizard:
         cfg = parse_config(tomllib.loads(text), path)
         p.say(f"Save settings to {path}\nTime zone: {cfg.timezone}\nDestination: {workspace_name or cfg.destination['path']}")
         for row in cfg.projects:
-            agreement = row.agreement
-            rate = f"{agreement['rate']:.2f} {agreement.get('currency', '(currency not set)')}/h" if "rate" in agreement else "rate not set"
-            p.say(f"  {row.name}: {row.description}; {'billable' if row.billable else 'not billed'}; "
-                  f"{agreement.get('billing', 'billing not set')}; {rate}; "
-                  f"breaks up to {agreement['count_breaks_up_to_minutes']} min; "
-                  f"away calls {'count' if agreement['count_calls_when_away'] else 'do not count'}; "
-                  f"rounding {agreement.get('round_to_minutes', cfg.blocks['round_to_minutes'])} min ({agreement['rounding']}); "
-                  f"monthly cap {agreement.get('monthly_cap_hours', 'none')} hours")
+            p.say("  " + agreement_summary(row, cfg.blocks))
         if pending:
             p.say("Clockify projects to create: " + ", ".join(pending))
         if not p.yes("Save these settings" + (" and replace the existing config?" if original is not None else "?")):
@@ -487,26 +556,10 @@ class Wizard:
         return path, original, text, key, http, pending, raw
 
     def commit(self, collected):
-        path, original, text, key, http, pending, raw = collected
-        current = path.read_text(encoding="utf-8") if path.exists() else None
-        if current != original:
-            raise UserError("The config changed during setup. Nothing overwritten; run setup again.")
-        if key:
-            save_key(key, self.p.output)
-        for name in pending:
-            base = "/workspaces/" + quote(raw["destination"]["workspace"], safe="") + "/projects"
-            # Recheck before creation; do not duplicate after a partial setup failure.
-            rows = Clockify({}, [], http)._pages(base, {"archived": "false"})
-            if any(r["name"] == name for r in rows):
-                raise UserError(f"Clockify already has a project named '{name}'. Run setup again and select it.")
-            row = next(r for r in raw["projects"] if r["name"] == name)
-            http.request("POST", base, {"name": name, "isPublic": True, "billable": row["agreement"]["billing"] != "none", "color": "#2196F3"})
-            self.p.output(f"Created Clockify project '{safe(name)}'. It remains there if you quit later.")
-        atomic_write(path, text)
+        config = save_settings(collected, self.p.output)
         self.saved = True
-        self.p.output(f"Saved {path}.")
         self.p.checkpoint()
-        return load_config(path)
+        return config
 
     def finish(self, config):
         from .cli import date_range, parser, run

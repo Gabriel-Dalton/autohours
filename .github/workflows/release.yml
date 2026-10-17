@@ -1,0 +1,73 @@
+name: Draft desktop release
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      PYINSTALLER_CONFIG_DIR: ${{ runner.temp }}/pyinstaller-cache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      # Install from a temp copy so setuptools metadata also stays outside the checkout.
+      - name: Prepare build source
+        shell: bash
+        run: |
+          cp -R "$GITHUB_WORKSPACE" "$RUNNER_TEMP/autohours-source"
+          python -m pip install "$RUNNER_TEMP/autohours-source[dev,build]"
+      - name: Test offline fixtures
+        run: python -B -m pytest -p no:cacheprovider
+      - name: Build app
+        shell: bash
+        run: python -B -m PyInstaller --noconfirm --clean --workpath "$RUNNER_TEMP/autohours-work" --distpath "$RUNNER_TEMP/autohours-dist" packaging/autohours.spec
+      - name: Package Windows executable
+        if: runner.os == 'Windows'
+        shell: bash
+        run: cp "$RUNNER_TEMP/autohours-dist/autohours.exe" "$RUNNER_TEMP/autohours-windows.exe"
+      - name: Package macOS application
+        if: runner.os == 'macOS'
+        run: ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/autohours-dist/autohours.app" "$RUNNER_TEMP/autohours-macos.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ runner.os }}
+          path: |
+            ${{ runner.temp }}/autohours-windows.exe
+            ${{ runner.temp }}/autohours-macos.zip
+          if-no-files-found: error
+
+  draft:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/release
+      - name: Create or update draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            test "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" = true
+          else
+            gh release create "$RELEASE_TAG" --draft --verify-tag --title "autohours $RELEASE_TAG" --generate-notes
+          fi
+          gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/release/autohours-windows.exe" "$RUNNER_TEMP/release/autohours-macos.zip" --clobber

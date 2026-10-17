@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0
+
+- Add a Tk desktop wizard and home screen for reviewing days, editing projects and managing nightly runs.
+- Share setup, credential verification, activity choices, rule building, saving and review logic with the text wizard.
+- Keep slow desktop operations in background threads and require separate approval for external writes.
+- Open the window with no arguments, while preserving CLI commands and explicit dry runs.
+- Schedule pip and packaged installations using the correct executable and keep private dated logs for 30 days.
+- Add an optional build extra, Windows and macOS packaging, and a tag-triggered draft release workflow.
+- Put app downloads, terminal installation and agent-assisted setup first in the README.
+
 ## 0.3.0
 
 - Add one-line Windows, macOS and Linux installers that start interactive setup.

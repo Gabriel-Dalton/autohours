@@ -1,6 +1,6 @@
 # Working on autohours
 
-Keep the project small, cross-platform and standard-library-only at runtime. Python 3.11 is the minimum. Use synthetic fixtures and offline HTTP stubs. Never call real destinations to test, and never commit local activity, keys, personal config or exported timesheets.
+Keep the project small, cross-platform and standard-library-only at runtime, plus Windows-only tzdata. Tkinter is standard library; PyInstaller belongs only in the optional build extra. Python 3.11 is the minimum. Use synthetic fixtures and offline HTTP stubs. Never call real destinations to test, and never commit local activity, keys, personal config or exported timesheets.
 
 ## Development
 
@@ -13,7 +13,7 @@ Keep `src/autohours/starter.toml` and `examples/autohours.example.toml` identica
 
 ## Helping someone set up timesheets
 
-Prefer `autohours setup` in the user's own interactive terminal, or `autohours setup --add-project` for an existing config. Agents may follow its steps and edit the config on the user's behalf. Never make a non-technical user edit a file or write a regex. Keys must be entered by the user at the hidden local prompt, never through chat or an agent transcript.
+Prefer the desktop app or `autohours gui` for people who have never used a terminal. Otherwise use `autohours setup` in the user's own interactive terminal, or `autohours setup --add-project` for an existing config. Agents may follow its steps and edit the config on the user's behalf. Never make a non-technical user edit a file or write a regex. Keys must be entered by the user at the hidden local prompt, never through chat or an agent transcript.
 
 Use the conversational workflow in [the setup skill](skills/autohours-setup/SKILL.md). Check ActivityWatch is running and recording both windows and AFK time. Ask for timezone, destination and project intent. Preserve their config; `init` refuses to overwrite it.
 
@@ -30,3 +30,11 @@ Write settings, run `doctor`, test representative titles with `rules test`, then
 HTML reviews omit titles unless `--titles` is explicit. Keep reviews, accepted files and scheduler logs private and outside source control. Do not create test caches, scratch folders, build or dist output inside the repository; use the system temp directory and disable bytecode and pytest caches during checks.
 
 Setup previews the exact schedule and requires separate approval to automate future writes. `autohours schedule --remove` undoes the generated daily job. Use absolute paths and private environment settings from [scheduling](docs/scheduling.md). Daily yesterday runs do not backfill all missed days. Keep scheduler logs private because previews can include titles.
+
+## Desktop and release work
+
+Share setup decisions through plain functions in setup.py and desktop.py; keep the text wizard compatible. Run slow operations in workers, and update Tk only on the main thread. Keep visible labels, keyboard navigation and scrollable content usable at Windows scaling of 125% to 150%. Test non-UI operations with offline stubs and build every step with a hidden Tk root when a display is available.
+
+No-argument launch opens the app; arguments retain the CLI. Frozen schedules invoke sys.executable directly. Pip schedules use sys.executable -B -m autohours. Keep logs in the private user config folder, retain 30 days, and show friendly errors without keys or tracebacks. App setup never authorizes rate changes, timesheet writes or nightly writes by itself.
+
+Build only in system temp, including package metadata and PyInstaller caches. A v* tag creates unsigned Windows and macOS downloads on a draft release. A human checks and publishes it. Do not publish or sign automatically.

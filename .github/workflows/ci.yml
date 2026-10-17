@@ -8,11 +8,16 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python: ['3.11', '3.13']
     runs-on: ${{ matrix.os }}
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
-      - run: python -m pip install -e ".[dev]" tzdata
-      - run: python -m pytest
+      - shell: bash
+        run: |
+          cp -R "$GITHUB_WORKSPACE" "$RUNNER_TEMP/autohours-source"
+          python -m pip install "$RUNNER_TEMP/autohours-source[dev]" tzdata
+      - run: python -B -m pytest -p no:cacheprovider
       - run: autohours --help

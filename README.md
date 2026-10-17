@@ -16,7 +16,13 @@ autohours supports ActivityWatch, Clockify and CSV. Small source and destination
 
 ## Quick start
 
-**No coding needed.** Open PowerShell on Windows, or Terminal on macOS/Linux, and paste one line.
+Choose the way that feels easiest:
+
+1. **[Download the app (no terminal)](https://github.com/Gabriel-Dalton/autohours/releases).** Open `autohours-windows.exe`, or unzip `autohours-macos.zip` and move the app to Applications. The window guides you through ActivityWatch, projects and your billing agreement. Python is included. Keep the app in its final location before enabling nightly runs.
+2. **One line in a terminal.** Use the command below for your system. Already installed? Run `autohours gui` for the window or `autohours setup` for text questions. Running `autohours` without arguments also opens the window.
+3. **Ask Claude Code or Codex.** Say "Help me set up autohours" and point it at [the setup skill](skills/autohours-setup/SKILL.md). Enter your key yourself in the app or hidden local prompt, never in chat.
+
+The downloads are unsigned. On Windows, choose **More info > Run anyway**. On macOS, right-click the app and choose **Open**. Download only from this repository's releases.
 
 Windows:
 
@@ -58,11 +64,17 @@ The last seven days' activity list contains private local window titles. Do not 
 
 ## Requirements
 
-- Windows, macOS or Linux, with Python 3.11 or newer.
+- Windows, macOS or Linux. Terminal installs need Python 3.11 or newer and Tk for the window (often `python3-tk` on Linux). Downloads include Python and Tk.
 - [ActivityWatch](https://activitywatch.net/) running with its window and AFK watchers enabled.
 - A Clockify account for Clockify exports, or just a local folder for CSV.
 
-The application uses only Python's standard library, plus the `tzdata` time zone package, which is installed automatically on Windows. pytest is for development only. Wayland desktop restrictions can prevent ActivityWatch from capturing window titles; check its dashboard before setup.
+The application uses only Python's standard library, plus the `tzdata` time zone package, which is installed automatically on Windows. pytest is for development only. PyInstaller is only in the optional `build` extra. Wayland desktop restrictions can prevent ActivityWatch from capturing window titles; check its dashboard before setup.
+
+## In the desktop app
+
+Pick a project, then tick its apps, sites or titles. Confirm its description and agreement, check the review, and save. Applying Clockify rates, writing a day and enabling nightly writes each require separate approval. Spreadsheet setup skips the key and workspace steps.
+
+The home screen reviews any day, opens a full local HTML report, edits project rules and turns nightly runs on or off. Reports omit window titles. Long checks run in the background. Logs are private files in the user config folder under `logs/YYYY-MM-DD.log`, retained for 30 days. A nightly run writes yesterday only; it does not backfill missed days. Review again after a partial failure before retrying.
 
 ## Advanced: edit the config yourself
 
@@ -243,3 +255,16 @@ python -B -m pytest -p no:cacheprovider
 Tests are fully offline and use synthetic events and stubbed HTTP. CI covers Python 3.11 and 3.13 on Windows, macOS and Linux. Keep runtime code standard-library-only (tzdata on Windows is the one exception), avoid raw activity in destination objects, and add regression tests for changed behavior. See [adding a destination](docs/adding-a-destination.md). The package and command metadata live in `pyproject.toml`; shared display and config names live in `src/autohours/__init__.py`.
 
 API references: [ActivityWatch REST API](https://docs.activitywatch.net/en/latest/api/rest.html) and [Clockify API](https://docs.clockify.me/).
+
+## Building desktop downloads
+
+Install `.[dev,build]` from a copy of the source in your system temp folder so package metadata stays outside the checkout. PyInstaller is a build tool, never a runtime dependency. Build on the target OS. Set `PYTHONDONTWRITEBYTECODE=1` and `PYINSTALLER_CONFIG_DIR` to a system temp directory, then run:
+
+```sh
+python -B -m pytest -p no:cacheprovider
+python -B -m PyInstaller --clean --noconfirm --workpath /absolute/temp/autohours-work --distpath /absolute/temp/autohours-dist packaging/autohours.spec
+```
+
+Replace the example temp paths with paths for your system. The [spec](packaging/autohours.spec) uses a windowed one-file executable on Windows and an app bundle on macOS, following [PyInstaller's spec format](https://pyinstaller.org/en/stable/spec-files.html). Optional icon placeholders are `packaging/autohours.ico` and `packaging/autohours.icns`; the default icon is used until these files are supplied.
+
+Pushing a `v*` tag runs tests and builds both downloads. The workflow attaches them to a **draft** GitHub Release for a human to check and publish. It does not sign or notarize downloads. Before publishing, test first launch, scaling at 125% and 150%, keyboard navigation, and a scheduled run on both systems. Moving an app after scheduling requires removing and recreating its nightly job.

@@ -64,7 +64,8 @@ def valid_key(key):
 def save_key(key, output=print):
     valid_key(key)
     if sys.platform == "win32":
-        result = subprocess.run(["setx", "CLOCKIFY_API_KEY", key], capture_output=True, text=True)
+        from .schedule import hidden_console
+        result = subprocess.run(["setx", "CLOCKIFY_API_KEY", key], capture_output=True, text=True, **hidden_console())
         if result.returncode:
             # Never include the command or captured output: both can contain the key.
             raise UserError("Could not save the Clockify key in your Windows user environment.")

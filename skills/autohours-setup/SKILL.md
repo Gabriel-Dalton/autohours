@@ -7,7 +7,7 @@ description: Help a user configure autohours from their local ActivityWatch acti
 
 Install this skill by copying this entire `autohours-setup` folder into `~/.claude/skills/`. On Windows, use the `.claude/skills` folder inside the user's home directory. Codex and other agents can follow the repository's AGENTS.md instead.
 
-Prefer `autohours setup` in the user's own interactive terminal. Use `autohours setup --add-project` to add a project to an existing config. The wizard asks one question at a time, supports back and quit, creates escaped rules from numbered activity choices, and asks separately before external writes and scheduling. Do not enter or retrieve the user's API key through agent tools; let them use the hidden local prompt.
+Prefer the desktop download or `autohours gui` for a person who has never used a terminal. The app opens with no arguments, keeps titles local, and offers Back, Next and Cancel. Otherwise use `autohours setup` in the user's own interactive terminal. Use `autohours setup --add-project` to add a project to an existing config. The wizard asks one question at a time, supports back and quit, creates escaped rules from numbered activity choices, and asks separately before external writes and scheduling. Do not enter or retrieve the user's API key through agent tools; let them use the hidden local prompt.
 
 If running an interactive wizard is impractical, follow its questions below and edit the config on the user's behalf. A non-technical user should never need to edit a file or write a regex. Use the README one-line installers for a new installation.
 
@@ -36,3 +36,9 @@ Ask for their timezone, destination and intended projects in plain English. Pres
 Use `autohours review DATE --html PATH` for a self-contained report. Keep reports outside the repository. Titles are omitted by default; only add `--titles` when the user explicitly wants private window titles in the report. Project names, rates and totals can also be sensitive. Never share a report without reviewing its audience and contents. Keep accepted files and scheduler logs private too.
 
 Stop for missing user choices that affect billing or external writes. Routine read-only checks and reversible config edits can proceed within the user's setup request. Never invent activity when the laptop slept, the phone was used, or AFK coverage is missing.
+
+## Desktop workflow
+
+Use the masked local key entry, Check key, and workspace dropdown. Select a project and tick actual activity items; the coverage percentage counts unique active time rather than adding overlapping categories. Confirm descriptions and all agreement fields. Spreadsheet skips the Clockify steps. Back does not undo saved settings or completed writes.
+
+Save settings, check rate differences, and review yesterday. Apply to Clockify shows the exact changes for separate approval and reads them back. Write this day shows a dry sync before confirmation. Enable nightly writes only after separate approval of the exact schedule. Home can review another date, open a private HTML report, edit projects, or remove the nightly job. Private dated logs live under the user config folder and expire after 30 days. Move packaged apps to their final location before scheduling. Never put logs, reports or activity screenshots in the repository.

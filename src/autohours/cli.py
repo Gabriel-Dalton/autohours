@@ -63,6 +63,7 @@ def parser():
     root = Parser(prog=APP_NAME, description="Review local activity before writing timesheet entries.")
     root.add_argument("--config", metavar="PATH")
     commands = root.add_subparsers(dest="command", required=True, parser_class=Parser)
+    commands.add_parser("gui", help="Open the desktop app")
     commands.add_parser("init", help="Create a starter config without overwriting")
     commands.add_parser("doctor", help="Check config, watchers and destination")
     setup = commands.add_parser("setup", help="Set up timesheets by answering questions")
@@ -105,6 +106,12 @@ def run(args):
 
 
 def _run(args):
+    if args.command == "gui":
+        try:
+            from .gui import launch
+        except ImportError:
+            raise UserError("The desktop app needs Python with Tk support. Install Tk for your Python, or use the desktop download.") from None
+        return launch(args.config)
     if args.command == "setup":
         from .setup import setup
         return setup(args.config, args.add_project)
@@ -166,24 +173,7 @@ def _run(args):
         return int(failed)
     if args.command == "unmatched" and len(args.dates) > 1:
         raise UserError("unmatched accepts one date. Run it separately for each day.")
-    start, end = date_range(args.dates, config.timezone)
-    end = min(end, datetime.now(timezone.utc))
-    if start >= end:
-        raise UserError("That period is in the future. Choose today or an earlier date.")
-    has_caps = any("monthly_cap_hours" in (p.agreement or {}) for p in config.projects)
-    month_start = start.astimezone(config.timezone).replace(day=1).astimezone(timezone.utc)
-    fetch_start = month_start if has_caps and args.command in ("preview", "review") else start
-    activity = source.fetch(fetch_start, end)
-    corrections = accepted.load(config)
-    result = build(activity, config.projects, config.blocks, fetch_start, end,
-                   config.timezone, corrections, caps=args.command != "sync")
-    if fetch_start != start:
-        # Keep monthly allocation, but display only the requested dates.
-        selected = build(activity, config.projects, config.blocks, start, end,
-                         config.timezone, corrections, caps=False)
-        selected.blocks = [b for b in result.blocks if b.start >= start]
-        selected.reviews = [r for r in result.reviews if r.start >= start]
-        result = selected
+    start, end, result, has_caps, month_start = review_period(config, args.dates, args.command)
     destination = None
     if args.command == "sync":
         destination = DESTINATIONS[config.destination["type"]](config)
@@ -211,6 +201,29 @@ def _run(args):
             else:
                 print(f"Would create {created}, would skip {skipped} (already logged). Nothing written. Use --write to write.")
     return 0
+
+
+def review_period(config, dates, command="review"):
+    source = SOURCES["activitywatch"](config)
+    start, end = date_range(dates, config.timezone)
+    end = min(end, datetime.now(timezone.utc))
+    if start >= end:
+        raise UserError("That period is in the future. Choose today or an earlier date.")
+    has_caps = any("monthly_cap_hours" in (p.agreement or {}) for p in config.projects)
+    month_start = start.astimezone(config.timezone).replace(day=1).astimezone(timezone.utc)
+    fetch_start = month_start if has_caps and command in ("preview", "review") else start
+    activity = source.fetch(fetch_start, end)
+    corrections = accepted.load(config)
+    result = build(activity, config.projects, config.blocks, fetch_start, end,
+                   config.timezone, corrections, caps=command != "sync")
+    if fetch_start != start:
+        # Keep monthly allocation, but display only the requested dates.
+        selected = build(activity, config.projects, config.blocks, start, end,
+                         config.timezone, corrections, caps=False)
+        selected.blocks = [b for b in result.blocks if b.start >= start]
+        selected.reviews = [r for r in result.reviews if r.start >= start]
+        result = selected
+    return start, end, result, has_caps, month_start
 
 
 def main(argv=None):

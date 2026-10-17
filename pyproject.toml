@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "autohours"
-version = "0.3.0"
+version = "0.4.0"
 description = "Turn local computer activity into reviewable timesheet entries."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -13,9 +13,10 @@ dependencies = ["tzdata; sys_platform == 'win32'"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+build = ["pyinstaller>=6,<7"]
 
 [project.scripts]
-autohours = "autohours.cli:main"
+autohours = "autohours.entry:main"
 
 [tool.setuptools.package-data]
 autohours = ["starter.toml"]
