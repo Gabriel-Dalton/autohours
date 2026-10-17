@@ -25,6 +25,7 @@ class Project:
     description: str
     billable: bool
     rules: dict[str, list[Pattern]] = field(default_factory=dict)
+    agreement: dict | None = None
 
 
 @dataclass

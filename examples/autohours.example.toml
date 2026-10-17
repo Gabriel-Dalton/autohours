@@ -11,13 +11,27 @@ url = "http://localhost:5600"
 use_web = false
 
 [blocks]
-# Bridge missing/AFK gaps up to this length, including the gap in elapsed time.
-# Use 0 for strict active time. Other projects and unmatched activity are barriers.
+# Group nearby slices into one entry. Excluded gaps are never billed.
+# Other projects and unmatched activity are barriers.
 merge_gap_minutes = 5
 # Discard blocks shorter than this many minutes after rounding.
 min_block_minutes = 10
-# 0 disables rounding. Otherwise trim inward to UTC multiples of this many minutes.
+# 0 disables rounding. Otherwise round billed duration per entry.
 round_to_minutes = 0
+
+# Defaults for all projects. A project's agreement overrides these fields.
+[policy]
+count_breaks_up_to_minutes = 0
+count_calls_when_away = false
+call_apps = ['Zoom', 'Google Meet', 'Microsoft Teams', 'Slack huddle', 'Discord']
+call_titles = ['Google Meet', 'Microsoft Teams', 'Slack huddle']
+rounding = "nearest" # nearest (half up) or up
+# round_to_minutes = 5 # overrides blocks.round_to_minutes
+# billing = "hourly" # hourly, flat, retainer or none
+# No rate, currency or cap is assumed. Set only values you have agreed.
+# rate = 120
+# currency = "CAD"
+# monthly_cap_hours = 40
 
 [destination]
 # Start with a local CSV. Relative paths are relative to this config's folder.
@@ -42,6 +56,17 @@ billable = true
 title = ['Acme', 'acme-workspace']
 app = []
 url = ['^https://acme\.example/']
+
+# Optional agreement for this project. Rates are examples, not defaults.
+[projects.agreement]
+billing = "hourly"
+# rate = 120
+# currency = "CAD"
+# count_breaks_up_to_minutes = 5
+# count_calls_when_away = true
+# round_to_minutes = 5
+# rounding = "up"
+# monthly_cap_hours = 40
 
 [[projects]]
 name = "Side project"

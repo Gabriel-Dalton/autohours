@@ -27,7 +27,7 @@ def test_order_any_rule_case_insensitive(projects):
 
 def test_merge_and_minimum(event, projects, settings, origin):
     result = run(event, projects, settings, origin, [event(0, 6, title="Acme"), event(10, 20, title="Acme"), event(30, 35, title="Acme")])
-    assert [b.minutes for b in result.blocks] == [20]
+    assert [b.minutes for b in result.blocks] == [16]
     assert result.discarded_minutes == 5
 
 
@@ -38,12 +38,12 @@ def test_unmatched_and_other_projects_are_barriers(event, projects, settings, or
     assert sum(result.unmatched.values()) == 1
 
 
-def test_rounding_is_inward_and_cannot_overlap(event, projects, settings, origin):
+def test_rounding_is_on_duration_and_cannot_overlap(event, projects, settings, origin):
     settings.update(min_block_minutes=0, round_to_minutes=5)
     result = run(event, projects, settings, origin, [event(1, 19, title="Acme"), event(19, 36, title="course")])
-    assert [(b.start.minute, b.end.minute) for b in result.blocks] == [(5, 15), (20, 35)]
-    assert result.discarded_minutes == 10
-    settings["min_block_minutes"] = 20
+    assert [(b.start.minute, b.end.minute) for b in result.blocks] == [(1, 19), (19, 34)]
+    assert result.discarded_minutes == 2
+    settings["min_block_minutes"] = 25
     assert run(event, projects, settings, origin, [event(1, 22, title="Acme")]).blocks == []
 
 

@@ -6,10 +6,12 @@ from pathlib import Path
 import sys
 
 from . import APP_NAME, CONFIG_NAME
+from . import accepted
 from .config import config_path, load_config
 from .destinations import sync
 from .models import UserError
-from .pipeline import build, classify
+from .pipeline import apply_caps, build, classify
+from .review import html_review, text_review
 from .plugins import DESTINATIONS, SOURCES
 
 
@@ -81,11 +83,23 @@ def parser():
     commands = root.add_subparsers(dest="command", required=True, parser_class=Parser)
     commands.add_parser("init", help="Create a starter config without overwriting")
     commands.add_parser("doctor", help="Check config, watchers and destination")
-    for command in ("preview", "sync", "unmatched"):
+    rates = commands.add_parser("rates", help="Compare Clockify project agreements")
+    rates.add_argument("--apply", action="store_true")
+    accept = commands.add_parser("accept", help="Accept explicit work regardless of AFK")
+    accept.add_argument("values", nargs="*", metavar="DATE START END")
+    accept.add_argument("--project")
+    accept.add_argument("--note", default="")
+    accept.add_argument("--remove", metavar="ID")
+    listing = commands.add_parser("accepted")
+    listing.add_argument("date", nargs="?")
+    for command in ("preview", "sync", "unmatched", "review"):
         sub = commands.add_parser(command)
         sub.add_argument("dates", nargs="*", metavar="DATE")
         if command == "sync":
             sub.add_argument("--write", action="store_true", help="Actually write the reviewed blocks")
+        if command == "review":
+            sub.add_argument("--html", metavar="PATH")
+            sub.add_argument("--titles", action="store_true", help="Include private window titles")
     rules = commands.add_parser("rules")
     tests = rules.add_subparsers(dest="rules_command", required=True, parser_class=Parser)
     test = tests.add_parser("test")
@@ -106,6 +120,33 @@ def run(args):
         print(f"Created {path}. Set your timezone and projects, then run {APP_NAME} doctor.")
         return 0
     config = load_config(config_path(args.config))
+    if args.command == "accept":
+        if args.remove:
+            if args.values or args.project or args.note:
+                raise UserError("Use accept --remove ID by itself.")
+            accepted.remove(config, args.remove)
+            print(f"Removed accepted block {safe(args.remove)}. Destination entries are unchanged.")
+        else:
+            if len(args.values) != 3 or not args.project:
+                raise UserError("Use accept DATE START END --project NAME [--note TEXT].")
+            day = date_range(args.values[:1], config.timezone)[0].astimezone(config.timezone).date()
+            item = accepted.add(config, day, *args.values[1:], args.project, args.note)
+            print(f"Accepted {item.id}. Review before syncing.")
+        return 0
+    if args.command == "accepted":
+        period = date_range([args.date], config.timezone) if args.date else None
+        for item in accepted.load(config):
+            if period is None or item.start < period[1] and item.end > period[0]:
+                print(f"{item.id}  {item.start.astimezone(config.timezone).isoformat()} to {item.end.astimezone(config.timezone).isoformat()}  {safe(config.projects[item.project].name)}  {safe(item.note)}")
+        return 0
+    if args.command == "rates":
+        if config.destination["type"] != "clockify":
+            raise UserError("rates requires a Clockify destination.")
+        from .rates import compare
+        messages, failed = compare(DESTINATIONS["clockify"](config), args.apply)
+        for message in messages:
+            print(safe(message))
+        return int(failed)
     if args.command == "rules":
         found = classify(config.projects, args.title, args.app, args.url)
         print("Unmatched" if found is None else f"Matches: {safe(config.projects[found].name)} (first matching project)")
@@ -127,14 +168,44 @@ def run(args):
     end = min(end, datetime.now(timezone.utc))
     if start >= end:
         raise UserError("That period is in the future. Choose today or an earlier date.")
-    result = build(source.fetch(start, end), config.projects, config.blocks, start, end, config.timezone)
+    has_caps = any("monthly_cap_hours" in (p.agreement or {}) for p in config.projects)
+    month_start = start.astimezone(config.timezone).replace(day=1).astimezone(timezone.utc)
+    fetch_start = month_start if has_caps and args.command in ("preview", "review") else start
+    activity = source.fetch(fetch_start, end)
+    corrections = accepted.load(config)
+    result = build(activity, config.projects, config.blocks, fetch_start, end,
+                   config.timezone, corrections, caps=args.command != "sync")
+    if fetch_start != start:
+        # Keep monthly allocation, but display only the requested dates.
+        selected = build(activity, config.projects, config.blocks, start, end,
+                         config.timezone, corrections, caps=False)
+        selected.blocks = [b for b in result.blocks if b.start >= start]
+        selected.reviews = [r for r in result.reviews if r.start >= start]
+        result = selected
+    destination = None
+    if args.command == "sync":
+        destination = DESTINATIONS[config.destination["type"]](config)
+        destination.check()
+        if has_caps:
+            last = end.astimezone(config.timezone)
+            month_end = (last.replace(day=28) + timedelta(days=4)).replace(day=1, hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
+            apply_caps(result, config.projects, config.timezone,
+                       destination.logged(month_start, month_end), destination.existing(start, end))
     if args.command == "unmatched":
         show_unmatched(result)
+    elif args.command == "review":
+        print(text_review(result, config.projects, config.timezone, args.titles))
+        if has_caps:
+            print("Caps use local activity from the start of the month. Sync checks logged destination time too.")
+        if args.html:
+            Path(args.html).write_text(html_review(result, config.projects, config.timezone, args.titles), encoding="utf-8")
+            print(f"Review saved to {args.html}.")
     else:
         preview(result, config.timezone)
+        for row in result.reviews:
+            if row.held:
+                print(f"Warning: {safe(config.projects[row.project].name)} monthly cap exceeded; held back by cap: {row.held:.1f} minutes.")
         if args.command == "sync":
-            destination = DESTINATIONS[config.destination["type"]](config)
-            destination.check()
             created, skipped = sync(destination, result.blocks, start, end, args.write)
             if args.write:
                 print(f"Created {created}, skipped {skipped} (already logged).")

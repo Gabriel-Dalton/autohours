@@ -5,7 +5,7 @@ from pathlib import Path
 from urllib.parse import quote, urlencode
 
 from .http import JsonHTTP
-from .models import UserError, iso, overlaps, timestamp
+from .models import Block, UserError, iso, overlaps, timestamp
 
 
 def resolve(items, wanted, kind):
@@ -48,6 +48,11 @@ class Clockify:
         self.workspace = quote(resolve(workspaces, self.settings["workspace"], "Workspace"), safe="")
         projects = self._pages(f"/workspaces/{self.workspace}/projects", {"archived": "false"})
         self.project_ids = {p.destination_project: resolve(projects, p.destination_project, "Project") for p in self.projects}
+        for p in self.projects:
+            if "monthly_cap_hours" in (p.agreement or {}) or "billing" in (p.agreement or {}):
+                identifier = self.project_ids[p.destination_project]
+                if sum(self.project_ids[other.destination_project] == identifier for other in self.projects) > 1:
+                    raise UserError("Projects with billing agreements or caps must resolve to distinct Clockify projects.")
         return "Clockify API key is valid; workspace and all projects found."
 
     def existing(self, start, end):
@@ -72,6 +77,24 @@ class Clockify:
             "description": block.description, "billable": block.billable,
             "projectId": self.project_ids[block.project],
         })
+
+    def logged(self, start, end):
+        """Own entries, including manual time, for monthly cap accounting."""
+        if self.workspace is None:
+            self.check()
+        rows = self._pages(f"/workspaces/{self.workspace}/user/{self.user}/time-entries", {"end": iso(end)})
+        rows += self._pages(f"/workspaces/{self.workspace}/user/{self.user}/time-entries", {"in-progress": "true"})
+        names = {identifier: name for name, identifier in self.project_ids.items()}
+        blocks, seen = [], set()
+        for row in rows:
+            interval = row["timeInterval"]
+            a = max(start, timestamp(interval["start"]))
+            b = min(end, timestamp(interval["end"])) if interval.get("end") else end
+            key = row.get("id", (row.get("projectId"), iso(a), iso(b)))
+            if a < b and key not in seen and row.get("projectId") in names:
+                blocks.append(Block(a, b, names[row["projectId"]], "", False))
+                seen.add(key)
+        return blocks
 
 
 class CSV:
@@ -119,6 +142,18 @@ class CSV:
                              "end": block.end.astimezone(self.zone).isoformat(),
                              "minutes": f"{block.minutes:.2f}", "project": block.project,
                              "description": block.description, "billable": str(block.billable).lower()})
+
+    def logged(self, start, end):
+        self.existing(start, end)  # Validate before reading project totals.
+        if not self.path.exists() or not self.path.stat().st_size:
+            return []
+        with self.path.open(newline="", encoding="utf-8") as stream:
+            result = []
+            for row in csv.DictReader(stream):
+                a, b = max(start, timestamp(row["start"])), min(end, timestamp(row["end"]))
+                if a < b:
+                    result.append(Block(a, b, row["project"], "", False))
+            return result
 
 
 def sync(destination, blocks, start, end, write=False):

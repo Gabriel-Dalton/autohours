@@ -1,6 +1,6 @@
 # Adding a source or destination
 
-The pipeline knows nothing about HTTP or CSV. `models.Source` and `models.Destination` are small Python protocols. `plugins.py` holds explicit factory registries. Version 1 ships only ActivityWatch, Clockify and CSV. There is no third-party package discovery or dynamic loading from user config yet; adding a plugin means a small code contribution.
+The pipeline knows nothing about HTTP or CSV. `models.Source` and `models.Destination` are small Python protocols. `plugins.py` holds explicit factory registries. autohours ships only ActivityWatch, Clockify and CSV. There is no third-party package discovery or dynamic loading from user config yet; adding a plugin means a small code contribution.
 
 ## Destination contract
 
@@ -38,3 +38,7 @@ Use `UserError` for plain-English fixes. `JsonHTTP` uses urllib, rejects redirec
 Implement `check() -> str` and `fetch(start, end) -> Activity`, register a factory in `SOURCES`, then add the source selection and config validation to the CLI. The CLI currently selects ActivityWatch explicitly because it is the only implemented source.
 
 `Activity` has `windows`, `afk` and optional `web` lists. Each `Event` has UTC-aware start/end and local-only data. Window data uses `app` and `title`; AFK data uses `status = "not-afk"`; web data can contain `title` and `url`. Clip to the requested range, include events crossing the start boundary, and provide active-time evidence. Never infer that missing AFK data means active. A future source with different activity semantics should normalize them here rather than changing destination code.
+
+## Monthly cap accounting
+
+The built-in destinations also implement `logged(start, end) -> list[Block]` to read project-attributed existing time clipped to the requested month range. This is required when a configured project has a monthly cap. Include manual entries regardless of billable status. Clockify uses only the signed-in user's entries. The CLI reserves these totals, skips overlapping candidates before allocating more cap, and shortens or holds back new entries before calling `sync`. Keep evidence and accepted notes out of these objects too. A new destination must support this read before allowing capped writes.
