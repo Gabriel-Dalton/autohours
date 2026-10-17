@@ -73,6 +73,26 @@ def icon(root, accent):
     return result
 
 
+def indicator_image(root, colors, size, radio, selected):
+    """Explicit filled indicators, independent of platform theme drawing."""
+    image = tk.PhotoImage(master=root, width=size, height=size)
+    for y in range(size):
+        for x in range(size):
+            distance = (((x + .5 - size / 2) ** 2 + (y + .5 - size / 2) ** 2) ** .5
+                        if radio else max(abs(x + .5 - size / 2), abs(y + .5 - size / 2)))
+            if distance > size / 2 - 1:
+                continue
+            ring = distance >= size / 2 - 3
+            color = colors["accent_text"] if ring or selected else colors["card"]
+            if selected and not radio:
+                u, v = x / size, y / size
+                if (.23 <= u <= .47 and abs(v - (u + .18)) < .07 or
+                        .43 <= u <= .79 and abs(v - (1.1 - u)) < .07):
+                    color = colors["indicator_mark"]
+            image.put(color, (x, y))
+    return image
+
+
 def apply(root, dark=None):
     colors = dict(DARK if (system_dark() if dark is None else dark) else LIGHT)
     family = font_family(root)
@@ -125,6 +145,8 @@ def apply(root, dark=None):
             for option in ("lightcolor", "darkcolor"):
                 style.map(name, **{option: [("focus", colors["border"]), ("!focus", colors["border"])]})
     style.configure("Nav.TButton", anchor="w", padding=(10, 10))
+    style.configure("Pending.Nav.TLabel", padding=(10, 10), foreground=colors["muted"],
+                    borderwidth=0, relief="flat")
     style.configure("Current.Nav.TButton", font=(family, 11, "bold"), background=colors["selected"])
     style.configure("Tile.TButton", anchor="w", padding=(18, 22), font=(family, 13, "bold"))
     for name in ("TEntry", "TCombobox"):
@@ -135,7 +157,21 @@ def apply(root, dark=None):
                   bordercolor=[("focus", colors["focus"])],
                   lightcolor=[("focus", colors["focus"])], darkcolor=[("focus", colors["focus"])],
                   arrowcolor=[("disabled", colors["muted"]), ("!disabled", colors["text"])])
+    root._indicator_images = []
     for name in ("TCheckbutton", "TRadiobutton"):
+        size = max(18, font.nametofont("TkDefaultFont", root).metrics("linespace"))
+        images = [indicator_image(root, colors, size, name == "TRadiobutton", selected)
+                  for selected in (False, True)]
+        root._indicator_images.extend(images)
+        element = f"Autohours{images[0]}.{name}.indicator"
+        style.element_create(element, "image", images[0], ("selected", images[1]),
+                             sticky="w", padding=(0, 0, 8, 0))
+        # Preserve native focus and label elements and replace only the indicator.
+        def replace_indicator(layout):
+            return [(element if part.endswith(".indicator") else part,
+                     {key: replace_indicator(value) if key == "children" else value
+                      for key, value in options.items()}) for part, options in layout]
+        style.layout(name, replace_indicator(style.layout(name)))
         style.configure(name, padding=(6, 8), focusthickness=2, indicatorbackground=colors["card"],
                         indicatorforeground=colors["indicator_mark"],
                         indicatorsize=max(16, font.nametofont("TkDefaultFont", root).metrics("linespace") - 4),

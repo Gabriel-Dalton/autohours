@@ -6,6 +6,7 @@ import pytest
 
 pytest.importorskip("tkinter")
 from autohours import theme
+from test_desktop import hidden_root
 
 
 def contrast(first, second):
@@ -21,6 +22,24 @@ def contrast(first, second):
 def test_secondary_border_contrast(palette):
     for background in ("card", "page"):
         assert contrast(palette["secondary_border"], palette[background]) >= 3
+
+
+@pytest.mark.parametrize("dark", [False, True])
+def test_filled_indicators_and_visible_rings(hidden_root, dark):
+    palette = theme.apply(hidden_root, dark=dark)
+    for background in ("card", "stripe", "page"):
+        assert contrast(palette["accent_text"], palette[background]) >= 3
+    images = hidden_root._indicator_images
+    def rgb(color):
+        return tuple(bytes.fromhex(color[1:]))
+    for off, on in (images[:2], images[2:]):
+        middle = off.width() // 2
+        assert off.get(middle, middle) == rgb(palette["card"])
+        assert on.get(middle, middle) == rgb(palette["accent_text"])
+        assert off.get(middle, 2) == on.get(middle, 2) == rgb(palette["accent_text"])
+    style = theme.ttk.Style(hidden_root)
+    for name in ("TCheckbutton", "TRadiobutton"):
+        assert "Autohours" in str(style.layout(name))
 
 
 @pytest.mark.parametrize("palette", [theme.LIGHT, theme.DARK])

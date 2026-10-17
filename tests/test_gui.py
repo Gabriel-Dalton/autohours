@@ -30,9 +30,108 @@ def test_timezone_detected_enter_and_back_navigation(hidden_root, tmp_path, monk
     assert app.step == 1 and app.session.raw["timezone"] == "America/Vancouver"
     drain(hidden_root, app)
     assert app.nav_buttons[0].cget("text").startswith("✓")
-    assert "disabled" in app.nav_buttons[2].state()
+    assert isinstance(app.nav_buttons[2], gui.ttk.Label)
     app.nav_buttons[0].invoke()
     assert app.step == 0 and app.zone.get() == "America/Vancouver"
+
+
+def test_activity_computer_enter_after_automatic_check(hidden_root, tmp_path, monkeypatch):
+    monkeypatch.setattr(setup, "detected_timezone", lambda: "UTC")
+    monkeypatch.setattr(desktop.Session, "hosts", lambda _: ["example-computer"])
+    monkeypatch.setattr(desktop.Session, "check_activity", lambda _: "Available")
+    app = gui.App(hidden_root, session(tmp_path))
+    drain(hidden_root, app)
+    app.show_step(1)
+    drain(hidden_root, app)
+    assert app.aw_ready and app.host.get() == "example-computer"
+    hidden_root.deiconify()
+    hidden_root.update()
+    app.host_box.focus_force()
+    hidden_root.update()
+    assert hidden_root.focus_get() == app.host_box
+    app.host_box.event_generate("<Return>")
+    hidden_root.update()
+    assert app.step == 2
+
+
+def descendants(widget):
+    for child in widget.winfo_children():
+        yield child
+        yield from descendants(child)
+
+
+@pytest.mark.parametrize("kind", ["entry", "combo", "check", "radio", "page", "text", "dropdown"])
+def test_enter_routing(hidden_root, tmp_path, monkeypatch, kind):
+    monkeypatch.setattr(gui.App, "work", lambda *args: None)
+    app = gui.App(hidden_root, session(tmp_path))
+    actions = []
+    app.default.configure(command=lambda: actions.append("primary"))
+    factories = {"entry": gui.ttk.Entry, "combo": gui.ttk.Combobox,
+                 "check": gui.ttk.Checkbutton, "radio": gui.ttk.Radiobutton,
+                 "page": gui.ttk.Frame, "text": gui.tk.Text, "dropdown": gui.ttk.Combobox}
+    widget = factories[kind](app.page)
+    widget.pack()
+    hidden_root.deiconify()
+    hidden_root.update()
+    widget.focus_force()
+    hidden_root.update()
+    if kind == "dropdown":
+        widget.configure(values=("One", "Two"), state="readonly")
+        hidden_root.tk.call("ttk::combobox::Post", widget)
+        hidden_root.update()
+        assert app.enter(SimpleNamespace(widget=widget)) is None
+        hidden_root.tk.call("ttk::combobox::Unpost", widget)
+    else:
+        widget.event_generate("<Return>")
+        hidden_root.update()
+    assert actions == ([] if kind in ("text", "dropdown") else ["primary"])
+    if kind == "text":
+        assert widget.get("1.0", "end-1c") == "\n"
+
+
+def test_sidebar_skips_restore_and_done_links(hidden_root, tmp_path, monkeypatch):
+    monkeypatch.setattr(gui.App, "work", lambda *args: None)
+    app = gui.App(hidden_root, session(tmp_path))
+    app.visited.update((0, 1, 2, 3, 4))
+    app.show_step(5)
+    for index in (3, 4):
+        row = app.nav_buttons[index]
+        assert isinstance(row, gui.ttk.Label)
+        assert row.cget("text").startswith("-  ") and "Skipped" in row.cget("text")
+    assert str(app.nav_buttons[0].cget("cursor")) == "hand2"
+    assert isinstance(app.nav_buttons[6], gui.ttk.Label)
+    app.go_back_to(2)
+    app.destination.set("clockify")
+    assert all("Skipped" not in row.cget("text") for row in app.nav_buttons)
+    app.destination.set("csv")
+    assert "Skipped" in app.nav_buttons[3].cget("text")
+    style = gui.ttk.Style(hidden_root)
+    assert str(style.lookup("Pending.Nav.TLabel", "borderwidth")) == "0"
+    assert style.lookup("Nav.TButton", "background", ("active",)) != style.lookup("Nav.TButton", "background")
+
+
+def test_first_project_activity_preview(hidden_root, tmp_path, monkeypatch):
+    monkeypatch.setattr(gui.App, "work", lambda *args: None)
+    value = session(tmp_path)
+    value.raw["projects"] = []
+    value.items = [(("app", "Editor"), 60), (("url", "example.test"), 30)]
+    app = gui.App(hidden_root, value)
+    app.show_step(5)
+    buttons = [w for w in descendants(app.page) if isinstance(w, gui.ttk.Button)]
+    first = next(w for w in buttons if w.cget("text") == "Add your first project")
+    assert first.cget("style") == "Primary.TButton"
+    checks = [w for w in descendants(app.item_panel) if isinstance(w, gui.ttk.Checkbutton)]
+    assert len(checks) == 2 and all("disabled" in w.state() for w in checks)
+    checks[0].invoke()
+    assert value.raw["projects"] == []
+    app.search.set("EXAMPLE")
+    assert len([w for w in descendants(app.item_panel) if isinstance(w, gui.ttk.Checkbutton)]) == 1
+    value.add_project("Example", "Work")
+    app.show_step(5)
+    checks = [w for w in descendants(app.item_panel) if isinstance(w, gui.ttk.Checkbutton)]
+    assert all("disabled" not in w.state() for w in checks)
+    checks[0].invoke()
+    assert value.raw["projects"][0]["app"] == ["^Editor$"]
 
 
 def test_timezone_fallback_and_saved_choice_not_overridden(hidden_root, tmp_path, monkeypatch):

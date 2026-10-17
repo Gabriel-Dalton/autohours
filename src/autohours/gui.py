@@ -78,6 +78,8 @@ class App:
         self.footer.pack(side="bottom", fill="x", before=viewport)
         root.bind("<FocusIn>", self.reveal_focus, add=True)
         root.bind("<Return>", self.enter)
+        self.enter_tag = "AutohoursPrimaryAction"
+        root.bind_class(self.enter_tag, "<Return>", self.enter)
         root.bind("<MouseWheel>", self.scroll, add=True)
         root.bind("<Button-4>", self.scroll, add=True)
         root.bind("<Button-5>", self.scroll, add=True)
@@ -112,6 +114,11 @@ class App:
 
     def reveal_focus(self, event):
         widget = event.widget
+        # Closed comboboxes consume Return in their class binding.
+        if widget.winfo_toplevel() == self.root and not isinstance(widget, tk.Text):
+            tags = widget.bindtags()
+            if self.enter_tag not in tags:
+                widget.bindtags((self.enter_tag,) + tags)
         if str(widget).startswith(str(self.content)):
             self.root.update_idletasks()
             y = widget.winfo_rooty() - self.content.winfo_rooty()
@@ -230,17 +237,25 @@ class App:
                     "Home", "Review a day", "Projects and rules", "Nightly run", "Settings")
         for index, title in enumerate(rows):
             current = index == (self.step if self.step is not None else self.home_view)
-            done = self.step is not None and index < self.step and index in self.visited
+            destination = (self.destination.get() if self.step == 2 and hasattr(self, "destination")
+                           else self.session.raw["destination"]["type"])
+            skipped = self.step is not None and not current and index in (3, 4) and destination == "csv"
+            done = self.step is not None and index < self.step and index in self.visited and not skipped
             row = ttk.Frame(self.sidebar)
             row.pack(fill="x", pady=3)
             ttk.Frame(row, width=4, style="Accent.TFrame" if current else "TFrame").pack(side="left", fill="y")
             text = f"{'✓' if done else index + 1}  {title}" if self.step is not None else title
             action = (lambda index=index: self.go_back_to(index)) if self.step is not None else (
                 self.show_home, self.focus_review, self.edit_projects, self.focus_nightly, self.settings)[index]
-            button = self.button(text, action, row, "Current.Nav.TButton" if current else "Nav.TButton")
-            button.pack_configure(fill="x", pady=0)
-            if self.step is not None and not done and not current:
-                button.state(["disabled"])
+            if self.step is not None and (skipped or not done and not current):
+                text = f"-  {title} (Skipped)" if skipped else text
+                button = ttk.Label(row, text=text, style="Pending.Nav.TLabel", wraplength=self.px(164))
+                button.pack(fill="x")
+            else:
+                button = self.button(text, action, row, "Current.Nav.TButton" if current else "Nav.TButton")
+                button.pack_configure(fill="x", pady=0)
+                if done or self.step is None:
+                    button.configure(cursor="hand2")
             self.nav_buttons.append(button)
 
     def go_back_to(self, number):
@@ -380,6 +395,8 @@ class App:
 
     def step_2(self):
         self.destination = tk.StringVar(value=self.session.raw["destination"]["type"])
+        self.destination.trace_add("write", lambda *_: self.render_sidebar())
+        self.render_sidebar()
         for label, value in (("Clockify", "clockify"), ("Spreadsheet (CSV)", "csv")):
             ttk.Radiobutton(self.page, text=label, variable=self.destination, value=value).pack(anchor="w", pady=5)
         self.csv, _ = self.entry("Spreadsheet file", self.session.raw["destination"].get("path", ""))
@@ -416,7 +433,10 @@ class App:
 
     def step_5(self):
         self.label("Private local activity from the last seven days. Select a project on the right, then tick its items. "
-                   "An app includes all use of that app. Categories overlap; first matching project wins.")
+                   "An app includes all use of that app. If something matches two projects, the one higher "
+                   "in the list wins. Use Move up to change the order.")
+        if not self.session.raw["projects"]:
+            self.button("Add your first project", self.add_project, style="Primary.TButton")
         self.coverage_label = self.label("Calculating your assigned time over the last 7 days...", style="Helper.TLabel")
         self.coverage_bar = ttk.Progressbar(self.page, maximum=100)
         self.coverage_bar.pack(fill="x", pady=(4, 16))
@@ -432,7 +452,7 @@ class App:
         self.item_panel.pack(fill="both", expand=True)
         right = ttk.Frame(columns)
         right.grid(row=0, column=1, sticky="nsew")
-        self.label("Projects (matching order)", right)
+        self.label("Your projects", right)
         self.projects = ttk.Treeview(right, show="tree", height=8, selectmode="browse")
         self.projects.column("#0", width=self.px(150), minwidth=self.px(100))
         theme.stripe(self.projects, self.colors)
@@ -465,12 +485,10 @@ class App:
     def render_items(self, focus_item=None):
         for widget in self.item_panel.winfo_children():
             widget.destroy()
-        if not self.projects.selection():
-            self.label("Add a project to start choosing its activity.", self.item_panel)
-            return
-        index = self.project_index()
-        row = self.session.raw["projects"][index]
-        self.label("Activity items (tick to assign)", self.item_panel)
+        index = self.project_index() if self.projects.selection() else None
+        row = self.session.raw["projects"][index] if index is not None else {}
+        self.label("Activity items (tick to assign)" if index is not None else
+                   "Recorded activity (add a project to assign items)", self.item_panel)
         query = self.search.get().strip().casefold()
         count = 0
         for i, ((kind, text), minutes) in enumerate(self.session.items):
@@ -489,6 +507,8 @@ class App:
             widget = ttk.Checkbutton(item, text=f"{kind}: {short}",
                                       variable=variable, command=changed)
             widget.variable = variable
+            if index is None:
+                widget.state(["disabled"])
             widget.pack(anchor="w", fill="x")
             if focus_item == i:
                 widget.focus_set()
@@ -500,6 +520,8 @@ class App:
                 self.label(", ".join(owners), detail, "Tag.TLabel")
         if not count:
             self.label("No activity matches your search." if query else "No activity items yet.", self.item_panel, "Helper.TLabel")
+        if index is None:
+            return
         self.label("Existing rules", self.item_panel)
         for kind in ("app", "url", "title"):
             for rule in row.get(kind, []):
