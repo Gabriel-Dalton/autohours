@@ -14,8 +14,9 @@ class ActivityWatch:
         self.settings = settings
         self.buckets = None
 
-    def check(self):
-        buckets = self.http.request("GET", "/buckets/")
+    def check(self, buckets=None):
+        if buckets is None:
+            buckets = self.http.request("GET", "/buckets/")
         hosts = sorted(b[len("aw-watcher-window_"):] for b in buckets if b.startswith("aw-watcher-window_"))
         host = self.settings.get("hostname")
         if host is None:

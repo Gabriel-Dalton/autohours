@@ -35,6 +35,7 @@ class App:
     def __init__(self, root, session):
         self.root, self.session = root, session
         self.busy = False
+        self.activity_loading = False
         self.queue = Queue()
         self.step = None
         self.reviewed = None
@@ -161,7 +162,8 @@ class App:
         states = []
         def disable(parent):
             for child in parent.winfo_children():
-                if isinstance(child, ttk.Widget) and hasattr(child, "state"):
+                if isinstance(child, (ttk.Button, ttk.Entry, ttk.Combobox, ttk.Checkbutton,
+                                      ttk.Radiobutton, ttk.Treeview, ttk.Scale)):
                     states.append((child, child.state()))
                     child.state(["disabled"])
                 disable(child)
@@ -278,9 +280,9 @@ class App:
             left.state(["disabled"])
         status = ttk.Frame(self.footer)
         status.grid(row=0, column=1, sticky="ew")
-        self.spinner = ttk.Label(status, text="", width=2, style="Helper.TLabel")
+        self.spinner = ttk.Label(status, text="", width=2, style="Footer.TLabel")
         self.spinner.pack(side="left", padx=(0, 8))
-        label = ttk.Label(status, textvariable=self.status, style="Helper.TLabel", wraplength=180)
+        label = ttk.Label(status, textvariable=self.status, style="Footer.TLabel", wraplength=180)
         label.pack(fill="x", expand=True)
         label.bind("<Configure>", lambda event: label.configure(wraplength=max(50, event.width)))
         ttk.Button(self.footer, text="Cancel" if self.step is not None else "Close", command=self.cancel,
@@ -316,6 +318,8 @@ class App:
                           self.primary, self.back if number else None)
         if number == 1:
             self.check_aw()
+        if number == 5 and (self.session.activity is None or self.activity_loading):
+            self.read_activity()
         if number == 0 and not self.zone_initialized:
             self.zone_initialized = True
             def detect():
@@ -366,7 +370,7 @@ class App:
 
     def step_1(self):
         self.label("Open ActivityWatch and let its window and AFK watchers record your apps and away time. "
-                   "The check also confirms there is activity in the last seven days.")
+                   "Your recent activity will load when you open Projects and rules.")
         self.aw_label = self.label("✓ Window and away time are available." if self.aw_ready else "! Not checked yet.",
                                    style="Success.TLabel" if self.aw_ready else "Warning.TLabel")
         self.button("Download ActivityWatch", lambda: webbrowser.open("https://activitywatch.net/downloads/"))
@@ -377,6 +381,8 @@ class App:
 
     def check_aw(self):
         self.aw_ready = False
+        self.session.activity = None
+        self.session.items = []
         self.aw_label.configure(text="Checking ActivityWatch...", style="Warning.TLabel")
         self.session.raw["activitywatch"]["use_web"] = self.web.get()
         def found(hosts):
@@ -387,7 +393,7 @@ class App:
                 self.aw_label.configure(text="! Select your computer, then click Check again.", style="Warning.TLabel")
                 return
             self.session.raw["activitywatch"]["hostname"] = self.host.get()
-            self.work(self.session.check_activity, checked)
+            checked(self.session.check_buckets())
         def checked(message):
             self.aw_ready = True
             self.aw_label.configure(text="✓ Checked: " + message, style="Success.TLabel")
@@ -464,13 +470,55 @@ class App:
         self.button("Move up", self.move_project, right)
         self.button("Edit description", self.edit_description, right)
         self.button("Remove project", self.remove_project, right)
-        self.button("Refresh activity", lambda: self.work(self.session.check_activity, lambda _: self.show_step(5)), right)
+        self.button("Refresh activity", self.read_activity, right)
         if self.session.raw["projects"]:
             self.projects.selection_set("0")
         self.render_items()
-        self.root.after_idle(lambda: self.update_coverage() if self.step == 5 and not self.busy else None)
+        self.root.after_idle(lambda: self.update_coverage() if self.step == 5 and not self.busy
+                             and self.session.activity is not None else None)
+
+    def read_activity(self):
+        self.coverage_label.configure(text="Reading your last 7 days of activity...")
+        if self.activity_loading:
+            return
+        self.activity_loading = True
+        session = self.session
+        settings = dict(session.raw["activitywatch"])
+        results = Queue()
+        def worker():
+            try:
+                results.put((True, session.read_activity(settings)))
+            except Exception as exc:
+                results.put((False, exc))
+        Thread(target=worker, daemon=True).start()
+        def poll():
+            if self.busy:
+                self.root.after(75, poll)
+                return
+            try:
+                ok, value = results.get_nowait()
+            except Empty:
+                self.root.after(75, poll)
+                return
+            self.activity_loading = False
+            if self.session is not session or settings != session.raw["activitywatch"]:
+                if self.step == 5:
+                    self.read_activity()
+                return
+            if ok:
+                session.activity, session.items = value
+            if self.step == 5:
+                if ok:
+                    self.render_items()
+                    self.update_coverage()
+                else:
+                    self.coverage_label.configure(text="Activity could not be read. Choose Refresh activity to retry.")
+                    self.error(value)
+        self.root.after(75, poll)
 
     def update_coverage(self):
+        if self.activity_loading:
+            return
         def shown(value):
             self.coverage_label.configure(text=f"{value:.0f}% of your last 7 days is assigned")
             self.coverage_bar.configure(value=value)

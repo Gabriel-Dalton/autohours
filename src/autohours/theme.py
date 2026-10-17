@@ -17,6 +17,18 @@ DARK = dict(page="#111827", card="#1b2535", border="#65748b", secondary_border="
             focus="#9ec5ff", success="#81d9a0", warning="#f7cc77", danger="#ff9da6",
             stripe="#243248", selected="#2b4261", indicator_mark="#1b2535")
 
+# Explicit maps override clam's per-widget disabled defaults, including labels.
+DISABLED_SURFACES = dict.fromkeys((
+    ".", "TFrame", "Card.TFrame", "Accent.TFrame", "TLabel", "Heading.TLabel",
+    "Number.TLabel", "Helper.TLabel", "Footer.TLabel", "Tag.TLabel", "Success.TLabel",
+    "Warning.TLabel", "Danger.TLabel", "Pending.Nav.TLabel", "TButton",
+    "Secondary.TButton", "Nav.TButton", "Current.Nav.TButton", "Tile.TButton",
+    "Primary.TButton", "TEntry", "TCombobox", "TCheckbutton", "TRadiobutton",
+    "Treeview", "Treeview.Heading", "Horizontal.TScale", "Vertical.TScale",
+    "TProgressbar", "Horizontal.TProgressbar", "Vertical.TProgressbar"), "card")
+DISABLED_SURFACES.update(dict.fromkeys(("Page.TFrame", "Title.TLabel", "Subtitle.TLabel",
+                                      "Horizontal.TScrollbar", "Vertical.TScrollbar"), "page"))
+
 
 def system_dark():
     """Use the app appearance preference; unavailable preferences mean light."""
@@ -121,6 +133,7 @@ def apply(root, dark=None):
     style.configure("Heading.TLabel", font=(heading, 13, "bold"))
     style.configure("Number.TLabel", font=(family, 20, "bold"))
     style.configure("Helper.TLabel", font=(family, 10), foreground=colors["muted"])
+    style.configure("Footer.TLabel", font=(family, 10), foreground=colors["muted"], background=colors["card"])
     style.configure("Tag.TLabel", font=(family, 10), background=colors["selected"], padding=(6, 3))
     for state in ("success", "warning", "danger"):
         style.configure(f"{state.title()}.TLabel", foreground=colors[state], padding=(8, 8))
@@ -191,6 +204,14 @@ def apply(root, dark=None):
         style.configure(f"{direction}.TScrollbar", arrowsize=12, borderwidth=0,
                         background=colors["border"], troughcolor=colors["page"])
     style.configure("TProgressbar", background=colors["accent_text"], borderwidth=0, thickness=6)
+    for name, surface in DISABLED_SURFACES.items():
+        for option, token in (("background", surface), ("fieldbackground", surface),
+                              ("foreground", "muted"), ("arrowcolor", "muted"),
+                              ("lightcolor", surface), ("darkcolor", surface),
+                              ("bordercolor", "border"), ("troughcolor", surface)):
+            existing = style.map(name, option)
+            style.map(name, **{option: [("disabled", colors[token]),
+                                       *(row for row in existing if "disabled" not in row[:-1])]})
     return colors
 
 

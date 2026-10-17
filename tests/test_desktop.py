@@ -38,6 +38,29 @@ def test_service_rules_coverage_and_no_remote_writes(tmp_path, services):
     assert all(method == "GET" for _, method, _, _ in services.calls)
 
 
+def test_quick_activity_check_only_requests_buckets(tmp_path, services):
+    value = session(tmp_path)
+    assert value.hosts() == ["fake"]
+    value.raw["activitywatch"]["hostname"] = "fake"
+    assert "AFK buckets found" in value.check_buckets()
+    assert len(services.calls) == 1
+    assert services.calls[0][1:3] == ("GET", "/buckets/")
+    assert value.activity is None and value.items == []
+    del value.activity_buckets["aw-watcher-afk_fake"]
+    with pytest.raises(UserError, match="No AFK watcher"):
+        value.check_buckets()
+    assert len(services.calls) == 1
+
+
+def test_deferred_activity_read_returns_data_without_mutating_session(tmp_path, services):
+    value = session(tmp_path)
+    value.now = datetime(2026, 10, 17, 12, tzinfo=timezone.utc)
+    activity, items = value.read_activity(dict(value.raw["activitywatch"]))
+    assert activity and items
+    assert value.activity is None and value.items == []
+    assert all(method == "GET" for _, method, _, _ in services.calls)
+
+
 def test_service_key_create_save_and_duplicate_target(tmp_path, services, monkeypatch):
     value = session(tmp_path)
     value.raw["projects"] = []
@@ -259,6 +282,7 @@ def test_hidden_window_builds_all_steps_and_home(hidden_root, tmp_path, monkeypa
     value.items = [(("app", "Editor"), 60)]
     # Building a view must not call real HTTP or a scheduler.
     monkeypatch.setattr(App, "work", lambda *a: None)
+    monkeypatch.setattr(App, "read_activity", lambda *args: None)
     app = App(hidden_root, value)
     for step in range(8):
         app.show_step(step)
@@ -311,7 +335,7 @@ def test_activity_step_checks_automatically_in_worker(hidden_root, tmp_path, mon
         calls.append(("activity", threading.get_ident()))
         return "Window and away time available."
     monkeypatch.setattr(value, "hosts", find_hosts)
-    monkeypatch.setattr(value, "check_activity", check_activity)
+    monkeypatch.setattr(value, "check_buckets", check_activity)
     monkeypatch.setattr(setup, "detected_timezone", lambda: None)
     app = App(hidden_root, value)
     def finish_work():
@@ -326,7 +350,7 @@ def test_activity_step_checks_automatically_in_worker(hidden_root, tmp_path, mon
     assert "Checking ActivityWatch" in app.aw_label.cget("text")
     finish_work()
     assert tuple(app.host_box.cget("values")) == tuple(hosts)
-    assert all(worker != main_thread for _, worker in calls)
+    assert all(worker != main_thread for name, worker in calls if name == "hosts")
     if len(hosts) == 1:
         assert app.host.get() == hosts[0]
         assert value.raw["activitywatch"]["hostname"] == hosts[0]
@@ -345,6 +369,7 @@ def test_activity_failure_and_footer_messages(hidden_root, tmp_path, monkeypatch
     from autohours.gui import App, messagebox
     value = session(tmp_path)
     monkeypatch.setattr(App, "work", lambda *args: None)
+    monkeypatch.setattr(App, "read_activity", lambda *args: None)
     app = App(hidden_root, value)
     assert app.status.get() == ""
     app.show_step(1)
@@ -363,6 +388,7 @@ def test_activity_failure_and_footer_messages(hidden_root, tmp_path, monkeypatch
 def test_scrollbar_only_for_overflow_inside_content(hidden_root, tmp_path, monkeypatch):
     from autohours.gui import App
     monkeypatch.setattr(App, "work", lambda *args: None)
+    monkeypatch.setattr(App, "read_activity", lambda *args: None)
     app = App(hidden_root, session(tmp_path))
     assert app.scrollbar.master == app.canvas.master
     assert app.scrollbar.master != app.footer.master

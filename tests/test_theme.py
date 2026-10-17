@@ -25,6 +25,24 @@ def test_secondary_border_contrast(palette):
 
 
 @pytest.mark.parametrize("dark", [False, True])
+def test_all_disabled_styles_use_palette_surfaces(hidden_root, dark):
+    palette = theme.apply(hidden_root, dark=dark)
+    style = theme.ttk.Style(hidden_root)
+    for name, token in theme.DISABLED_SURFACES.items():
+        for states in (("disabled",), ("disabled", "active"),
+                       ("disabled", "selected"), ("disabled", "readonly")):
+            background = style.lookup(name, "background", states)
+            foreground = style.lookup(name, "foreground", states)
+            assert background == palette[token], (name, states)
+            assert foreground == palette["muted"], (name, states)
+            assert contrast(foreground, background) >= 3
+            assert style.lookup(name, "fieldbackground", states) == palette[token]
+    for states in ((), ("disabled",)):
+        assert style.lookup("Footer.TLabel", "background", states) == style.lookup("TFrame", "background")
+        assert style.lookup("Footer.TLabel", "foreground", states) == palette["muted"]
+
+
+@pytest.mark.parametrize("dark", [False, True])
 def test_filled_indicators_and_visible_rings(hidden_root, dark):
     palette = theme.apply(hidden_root, dark=dark)
     for background in ("card", "stripe", "page"):

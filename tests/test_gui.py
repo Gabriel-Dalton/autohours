@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from threading import Event
 import time
 
 import pytest
@@ -20,7 +21,7 @@ def drain(root, app):
 def test_timezone_detected_enter_and_back_navigation(hidden_root, tmp_path, monkeypatch):
     monkeypatch.setattr(setup, "detected_timezone", lambda: "America/Vancouver")
     monkeypatch.setattr(desktop.Session, "hosts", lambda _: ["example-computer"])
-    monkeypatch.setattr(desktop.Session, "check_activity", lambda _: "Window and away time available.")
+    monkeypatch.setattr(desktop.Session, "check_buckets", lambda _: "Window and away time available.")
     app = gui.App(hidden_root, session(tmp_path))
     drain(hidden_root, app)
     assert app.zone.get() == "America/Vancouver"
@@ -38,7 +39,7 @@ def test_timezone_detected_enter_and_back_navigation(hidden_root, tmp_path, monk
 def test_activity_computer_enter_after_automatic_check(hidden_root, tmp_path, monkeypatch):
     monkeypatch.setattr(setup, "detected_timezone", lambda: "UTC")
     monkeypatch.setattr(desktop.Session, "hosts", lambda _: ["example-computer"])
-    monkeypatch.setattr(desktop.Session, "check_activity", lambda _: "Available")
+    monkeypatch.setattr(desktop.Session, "check_buckets", lambda _: "Available")
     app = gui.App(hidden_root, session(tmp_path))
     drain(hidden_root, app)
     app.show_step(1)
@@ -60,9 +61,87 @@ def descendants(widget):
         yield from descendants(child)
 
 
+def test_work_disables_only_controls_and_restores_states(hidden_root, tmp_path, monkeypatch):
+    monkeypatch.setattr(setup, "detected_timezone", lambda: None)
+    app = gui.App(hidden_root, session(tmp_path))
+    drain(hidden_root, app)
+    controls = [factory(app.page) for factory in (gui.ttk.Button, gui.ttk.Entry,
+                gui.ttk.Combobox, gui.ttk.Checkbutton, gui.ttk.Radiobutton,
+                gui.ttk.Treeview, gui.ttk.Scale)]
+    controls[2].state(["readonly"])
+    controls[3].state(["disabled"])
+    labels = [app.label("Synthetic label")]
+    labels.extend(w for parent in (app.footer, app.sidebar) for w in descendants(parent)
+                  if isinstance(w, gui.ttk.Label))
+    previous = [w.state() for w in controls]
+    release = Event()
+    try:
+        app.work(lambda: release.wait(2), lambda _: None)
+        assert all("disabled" in w.state() for w in controls)
+        assert all("disabled" not in w.state() for w in labels)
+        assert "disabled" not in app.page.state()
+        assert app.spinner.cget("style") == "Footer.TLabel"
+        assert app.enter(SimpleNamespace(widget=controls[0])) is None
+    finally:
+        release.set()
+        drain(hidden_root, app)
+    assert [w.state() for w in controls] == previous
+
+
+def test_lazy_activity_read_allows_enter_and_survives_navigation(hidden_root, tmp_path, monkeypatch):
+    monkeypatch.setattr(setup, "detected_timezone", lambda: None)
+    value = session(tmp_path)
+    release = Event()
+    calls = []
+    def read(settings):
+        calls.append(settings)
+        release.wait(2)
+        return object(), [(("app", "Synthetic editor"), 60)]
+    monkeypatch.setattr(value, "read_activity", read)
+    app = gui.App(hidden_root, value)
+    drain(hidden_root, app)
+    assert not calls
+    app.show_step(5)
+    try:
+        assert app.activity_loading and not app.busy
+        assert app.coverage_label.cget("text") == "Reading your last 7 days of activity..."
+        assert "disabled" not in app.default.state()
+        assert app.enter(SimpleNamespace(widget=app.page)) == "break"
+        assert app.step == 6
+    finally:
+        release.set()
+        deadline = time.monotonic() + 3
+        while app.activity_loading and time.monotonic() < deadline:
+            hidden_root.update()
+            time.sleep(.01)
+    assert not app.activity_loading
+    assert value.items == [(("app", "Synthetic editor"), 60)]
+    assert app.step == 6
+
+
+@pytest.mark.parametrize("dark", [False, True])
+def test_every_rendered_style_has_disabled_palette_map(hidden_root, tmp_path, monkeypatch, dark):
+    monkeypatch.setattr(theme, "system_dark", lambda: dark)
+    monkeypatch.setattr(gui.App, "work", lambda *args: None)
+    monkeypatch.setattr(gui.App, "read_activity", lambda *args: None)
+    app = gui.App(hidden_root, session(tmp_path))
+    style = gui.ttk.Style(hidden_root)
+    for step in (*range(8), None):
+        app.show_home() if step is None else app.show_step(step)
+        for widget in descendants(hidden_root):
+            if not isinstance(widget, gui.ttk.Widget):
+                continue
+            name = widget.cget("style") or widget.winfo_class()
+            if name in ("TScrollbar", "TProgressbar", "TScale"):
+                name = str(widget.cget("orient")).title() + "." + name
+            assert name in theme.DISABLED_SURFACES
+            assert style.lookup(name, "background", ("disabled",)) == app.colors[theme.DISABLED_SURFACES[name]]
+
+
 @pytest.mark.parametrize("kind", ["entry", "combo", "check", "radio", "page", "text", "dropdown"])
 def test_enter_routing(hidden_root, tmp_path, monkeypatch, kind):
     monkeypatch.setattr(gui.App, "work", lambda *args: None)
+    monkeypatch.setattr(gui.App, "read_activity", lambda *args: None)
     app = gui.App(hidden_root, session(tmp_path))
     actions = []
     app.default.configure(command=lambda: actions.append("primary"))
@@ -91,6 +170,7 @@ def test_enter_routing(hidden_root, tmp_path, monkeypatch, kind):
 
 def test_sidebar_skips_restore_and_done_links(hidden_root, tmp_path, monkeypatch):
     monkeypatch.setattr(gui.App, "work", lambda *args: None)
+    monkeypatch.setattr(gui.App, "read_activity", lambda *args: None)
     app = gui.App(hidden_root, session(tmp_path))
     app.visited.update((0, 1, 2, 3, 4))
     app.show_step(5)
@@ -112,6 +192,7 @@ def test_sidebar_skips_restore_and_done_links(hidden_root, tmp_path, monkeypatch
 
 def test_first_project_activity_preview(hidden_root, tmp_path, monkeypatch):
     monkeypatch.setattr(gui.App, "work", lambda *args: None)
+    monkeypatch.setattr(gui.App, "read_activity", lambda *args: None)
     value = session(tmp_path)
     value.raw["projects"] = []
     value.items = [(("app", "Editor"), 60), (("url", "example.test"), 30)]
@@ -153,6 +234,7 @@ def test_scaled_screens_and_palette(hidden_root, tmp_path, monkeypatch, dark, sc
     hidden_root.tk.call("tk", "scaling", scale * 96 / 72)
     monkeypatch.setattr(theme, "system_dark", lambda: dark)
     monkeypatch.setattr(gui.App, "work", lambda *args: None)
+    monkeypatch.setattr(gui.App, "read_activity", lambda *args: None)
     value = session(tmp_path)
     value.spaces = [{"id": "workspace", "name": "Example workspace"}]
     value.items = [(("app", "Editor"), 60), (("title", "A synthetic project title"), 30)]
@@ -176,6 +258,7 @@ def test_scaled_screens_and_palette(hidden_root, tmp_path, monkeypatch, dark, sc
 
 def test_search_filters_without_reassigning_and_agreement_drafts_survive(hidden_root, tmp_path, monkeypatch):
     monkeypatch.setattr(gui.App, "work", lambda *args: None)
+    monkeypatch.setattr(gui.App, "read_activity", lambda *args: None)
     value = session(tmp_path)
     value.items = [(("app", "Editor"), 60), (("url", "example.test"), 30)]
     app = gui.App(hidden_root, value)
@@ -200,6 +283,7 @@ def test_search_filters_without_reassigning_and_agreement_drafts_survive(hidden_
 
 def test_review_totals_do_not_write_and_preserve_time_spans(hidden_root, tmp_path, monkeypatch, services):
     monkeypatch.setattr(gui.App, "work", lambda *args: None)
+    monkeypatch.setattr(gui.App, "read_activity", lambda *args: None)
     value = session(tmp_path)
     value.raw["projects"][0].update(app=["^Acme\\.App\\+$"],
         agreement={"billing": "hourly", "rate": 100, "currency": "CAD"})

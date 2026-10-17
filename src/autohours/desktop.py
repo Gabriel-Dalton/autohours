@@ -61,6 +61,7 @@ class Session:
         self.pending = []
         self.items = []
         self.activity = None
+        self.activity_buckets = None
         self.now = datetime.now(timezone.utc)
 
     def config(self):
@@ -68,7 +69,21 @@ class Session:
 
     def hosts(self):
         source = setup.ActivityWatch(self.raw["activitywatch"])
-        return setup.activity_hosts(source.http.request("GET", "/buckets/"))
+        self.activity_buckets = source.http.request("GET", "/buckets/")
+        return setup.activity_hosts(self.activity_buckets)
+
+    def check_buckets(self):
+        if self.activity_buckets is None:
+            raise UserError("Check ActivityWatch to discover your computers first.")
+        return setup.ActivityWatch(self.raw["activitywatch"]).check(self.activity_buckets)
+
+    def read_activity(self, settings):
+        source = setup.ActivityWatch(settings)
+        activity = setup.recent_activity(source, self.now)
+        items = setup.activity_items(activity, self.now - timedelta(days=7), self.now)
+        if not items:
+            raise UserError("No active time recorded in the last seven days. Let ActivityWatch record some work and check again.")
+        return activity, items
 
     def check_activity(self):
         source = setup.ActivityWatch(self.raw["activitywatch"])
@@ -103,7 +118,6 @@ class Session:
             self.check_key()
             identifier = setup.resolve(self.spaces, self.raw["destination"]["workspace"], "Workspace")
             self.remote = setup.remote_projects(self.http, identifier)
-        self.check_activity()
 
     def add_project(self, name, description, target=None, create=False):
         name, description = setup.nonempty(name.strip()), setup.nonempty(description.strip())
