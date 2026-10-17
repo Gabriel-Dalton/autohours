@@ -117,7 +117,7 @@ def test_rates_diff_apply_readback(projects):
     dest = Clockify({"workspace": "My workspace"}, projects[:1], http)
     messages, failed = compare(dest)
     assert not failed and not http.puts
-    assert "5000 cents CAD -> 12550 cents CAD" in "\n".join(messages)
+    assert "50.00 CAD/h -> 125.50 CAD/h" in "\n".join(messages)
     messages, failed = compare(dest, True)
     assert not failed and "confirmed" in "\n".join(messages)
     assert http.reads == 3
@@ -141,6 +141,15 @@ def test_rates_no_rate_never_sets_one(projects):
     messages, failed = compare(Clockify({"workspace": "My workspace"}, projects[:1], http), True)
     assert not failed and "rate not set" in "\n".join(messages)
     assert "hourlyRate" not in http.puts[0]
+
+
+def test_rates_in_sync_money_and_no_unnecessary_put(projects):
+    projects[0].agreement = {"billing": "hourly", "rate": 100, "currency": "USD"}
+    http = RateHTTP("USD")
+    http.project.update(billable=True, hourlyRate={"amount": 10000, "currency": "USD"})
+    messages, failed = compare(Clockify({"workspace": "My workspace"}, projects[:1], http), True)
+    assert not failed and not http.puts
+    assert messages == ["Acme Corp: in sync (billable, 100.00 USD/h)"]
 
 
 def test_policy_defaults_and_project_overrides(tmp_path):

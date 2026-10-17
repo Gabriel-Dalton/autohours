@@ -67,13 +67,17 @@ def config_path(explicit=None) -> Path:
     local = Path.cwd() / CONFIG_NAME
     if local.exists():
         return local
+    return user_config_dir() / CONFIG_NAME
+
+
+def user_config_dir() -> Path:
     if sys.platform == "win32":
         base = Path(os.environ.get("APPDATA", Path.home() / "AppData/Roaming"))
     elif sys.platform == "darwin":
         base = Path.home() / "Library/Application Support"
     else:
         base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    return base / APP_NAME / CONFIG_NAME
+    return base / APP_NAME
 
 
 def _keys(table, allowed, label):
@@ -95,9 +99,14 @@ def load_config(path: Path) -> Config:
         with path.open("rb") as stream:
             raw = tomllib.load(stream)
     except FileNotFoundError:
-        raise UserError(f"No config found at {path}. Run '{APP_NAME} init' first.") from None
+        raise UserError(f"No config found at {path}. Run '{APP_NAME} setup' (or init for manual setup) first.") from None
     except tomllib.TOMLDecodeError as exc:
         raise UserError(f"Config is not valid TOML: {exc}") from None
+    return parse_config(raw, path)
+
+
+def parse_config(raw, path: Path) -> Config:
+    """Validate in memory too, before the setup wizard writes anything."""
     _keys(raw, ["timezone", "activitywatch", "blocks", "destination", "projects", "policy"], "config")
     policy = {**POLICY, **agreement_table(raw.get("policy", {}), "policy")}
     name = _string(raw.get("timezone"), "timezone")

@@ -1,5 +1,6 @@
 /autohours.toml
 /autohours.accepted.toml
+/autohours.lock
 /timesheet.csv
 .venv/
 .python/

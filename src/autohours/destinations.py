@@ -1,10 +1,10 @@
 import csv
 from datetime import datetime, timezone
-import os
 from pathlib import Path
 from urllib.parse import quote, urlencode
 
 from .http import JsonHTTP
+from .credentials import read_key
 from .models import Block, UserError, iso, overlaps, timestamp
 
 
@@ -20,9 +20,9 @@ def resolve(items, wanted, kind):
 
 class Clockify:
     def __init__(self, settings, projects, http=None):
-        key = os.environ.get("CLOCKIFY_API_KEY", "").strip()
+        key = read_key() if http is None else ""
         if not key and http is None:
-            raise UserError("Set CLOCKIFY_API_KEY in your environment. Get it from Clockify Profile settings; never put it in the config.")
+            raise UserError("Run autohours setup or set CLOCKIFY_API_KEY. Get it from Clockify Profile settings; never put it in the config.")
         self.http = http or JsonHTTP("https://api.clockify.me/api/v1", {"X-Api-Key": key}, "Clockify")
         self.settings = settings
         self.projects = projects

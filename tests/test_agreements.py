@@ -90,6 +90,27 @@ def test_review_text_and_html_privacy(event, projects, settings, origin):
     assert "rate not set" in text_review(result, projects, timezone.utc)
 
 
+def test_review_dates_are_headings_and_times_are_local(event, projects, settings, origin):
+    from zoneinfo import ZoneInfo
+    zone = ZoneInfo("America/Vancouver")
+    result = build(gap_activity(event), projects, settings, origin, origin + timedelta(hours=1), zone)
+    text = text_review(result, projects, zone)
+    html = html_review(result, projects, zone)
+    assert "2026-10-16\n02:00 to 02:30" in text
+    assert "Entry: 02:00 to 02:27" in text
+    assert "<h3>2026-10-16</h3>" in html and "02:00 to 02:30" in html
+    assert "2026-10-16T" not in text + html
+
+
+def test_review_repeated_hour_retains_offset_and_midnight_retains_date():
+    from zoneinfo import ZoneInfo
+    from autohours.models import timestamp
+    from autohours.review import span
+    zone = ZoneInfo("America/Vancouver")
+    assert span(timestamp("2025-11-02T08:30:00Z"), timestamp("2025-11-02T09:30:00Z"), zone) == "01:30 (-07:00) to 01:30 (-08:00)"
+    assert span(timestamp("2026-10-16T06:30:00Z"), timestamp("2026-10-16T07:00:00Z"), zone) == "23:30 to 00:00 (2026-10-16)"
+
+
 def test_cap_resets_at_local_month_boundary(projects, settings):
     from zoneinfo import ZoneInfo
     from autohours.models import Event, timestamp

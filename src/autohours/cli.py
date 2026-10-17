@@ -65,6 +65,10 @@ def parser():
     commands = root.add_subparsers(dest="command", required=True, parser_class=Parser)
     commands.add_parser("init", help="Create a starter config without overwriting")
     commands.add_parser("doctor", help="Check config, watchers and destination")
+    setup = commands.add_parser("setup", help="Set up timesheets by answering questions")
+    setup.add_argument("--add-project", action="store_true", help="Add a project to existing settings")
+    schedule = commands.add_parser("schedule", help="Remove the approved daily schedule")
+    schedule.add_argument("--remove", action="store_true", required=True)
     rates = commands.add_parser("rates", help="Compare Clockify project agreements")
     rates.add_argument("--apply", action="store_true")
     accept = commands.add_parser("accept", help="Accept explicit work regardless of AFK")
@@ -93,6 +97,21 @@ def parser():
 
 
 def run(args):
+    if args.command == "sync" and args.write:
+        from .locking import writer_lock
+        with writer_lock(config_path(args.config)):
+            return _run(args)
+    return _run(args)
+
+
+def _run(args):
+    if args.command == "setup":
+        from .setup import setup
+        return setup(args.config, args.add_project)
+    if args.command == "schedule":
+        from .schedule import remove
+        remove()
+        return 0
     if args.command == "init":
         path = Path(args.config).expanduser() if args.config else Path.cwd() / CONFIG_NAME
         try:

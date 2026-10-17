@@ -20,7 +20,19 @@ def safe(value):
 
 
 def stamp(value, zone):
-    return value.astimezone(zone).isoformat(timespec="seconds")
+    local = value.astimezone(zone)
+    text = local.strftime("%H:%M")
+    # Preserve the offset only during a repeated hour, when HH:MM is ambiguous.
+    if local.replace(fold=0).utcoffset() != local.replace(fold=1).utcoffset():
+        offset = local.strftime("%z")
+        text += f" ({offset[:3]}:{offset[3:]})"
+    return text
+
+
+def span(start, end, zone):
+    a, b = start.astimezone(zone), end.astimezone(zone)
+    suffix = f" ({b.date()})" if a.date() != b.date() else ""
+    return f"{stamp(start, zone)} to {stamp(end, zone)}{suffix}"
 
 
 def totals(result, projects):
@@ -78,24 +90,34 @@ def summary_lines(result, projects, titles=False):
 
 def text_review(result, projects, zone, titles=False, verbose=False):
     lines = []
+    day = None
     if not result.blocks:
         lines.append("No matching blocks. Check your rules, minimum block length and AFK watcher.")
     for row in result.reviews:
         if not verbose and row.billed <= 0:
             continue
+        local_day = row.start.astimezone(zone).date()
+        if local_day != day:
+            lines.append(str(local_day))
+            day = local_day
         worked = sum(s.minutes for s in row.segments if s.kind in ("worked", "call", "accepted"))
-        lines.append(f"{stamp(row.start, zone)} to {stamp(row.end, zone)}  {safe(projects[row.project].name)}  worked {worked:.1f} min; billed {row.billed:.1f} min")
+        lines.append(f"{span(row.start, row.end, zone)}  {safe(projects[row.project].name)}  worked {worked:.1f} min; billed {row.billed:.1f} min")
         lines.append("  " + reasons(row))
         if row.billed:
             entry_end = row.entry_start + timedelta(minutes=row.billed)
-            lines.append(f"  Entry: {stamp(row.entry_start, zone)} to {stamp(entry_end, zone)}")
+            lines.append(f"  Entry: {span(row.entry_start, entry_end, zone)}")
         if titles:
             lines.extend("  " + safe(title) for title in sorted({s.title for s in row.segments if s.title}))
     if verbose:
         lines.append("Activity detail:")
+        day = None
         for s in timeline_segments(result):
+            local_day = s.start.astimezone(zone).date()
+            if local_day != day:
+                lines.append(str(local_day))
+                day = local_day
             name = projects[s.project].name if s.project is not None else "Unmatched"
-            lines.append(f"  {stamp(s.start, zone)} to {stamp(s.end, zone)}  {safe(name)}: {LABELS[s.kind]}, {s.minutes:.1f} min")
+            lines.append(f"  {span(s.start, s.end, zone)}  {safe(name)}: {LABELS[s.kind]}, {s.minutes:.1f} min")
             if titles and s.title:
                 lines.append("  " + safe(s.title))
     lines.extend(summary_lines(result, projects, titles))
@@ -170,20 +192,27 @@ def html_review(result, projects, zone, titles=False, verbose=False):
             out.append('<ul>')
             for s in compact:
                 title = f" | {s.title}" if titles and s.title else ""
-                label = f"{stamp(s.start, zone)} to {stamp(s.end, zone)}: {LABELS[s.kind]}, {s.minutes:.1f} min{title}"
+                label = f"{span(s.start, s.end, zone)}: {LABELS[s.kind]}, {s.minutes:.1f} min{title}"
                 out.append(f'<li>{escape(label)}</li>')
             out.append('</ul>')
         out.append('</section>')
     out.append('<h2>Blocks</h2><table><caption>Real spans and compressed destination entries</caption><thead><tr><th scope="col">Project</th><th scope="col">Activity span</th><th scope="col">Entry</th><th scope="col">Billed minutes</th><th scope="col">Explanation</th></tr></thead><tbody>')
+    day = None
     for row in result.reviews:
         if not verbose and row.billed <= 0:
             continue
-        span = f"{stamp(row.start, zone)} to {stamp(row.end, zone)}"
-        entry = f"{stamp(row.entry_start, zone)} to {stamp(row.entry_start + timedelta(minutes=row.billed), zone)}" if row.billed else "Not written"
+        local_day = row.start.astimezone(zone).date()
+        if local_day != day:
+            if day is not None:
+                out.append('</tbody><tbody>')
+            out.append(f'<tr><th colspan="5" scope="rowgroup"><h3>{local_day}</h3></th></tr>')
+            day = local_day
+        activity_span = span(row.start, row.end, zone)
+        entry = span(row.entry_start, row.entry_start + timedelta(minutes=row.billed), zone) if row.billed else "Not written"
         detail = reasons(row)
         if titles:
             detail += " | " + " | ".join(sorted({s.title for s in row.segments if s.title}))
-        out.append(f'<tr><th scope="row">{escape(projects[row.project].name)}</th><td>{escape(span)}</td><td>{escape(entry)}</td><td>{row.billed:.1f}</td><td>{escape(detail)}</td></tr>')
+        out.append(f'<tr><th scope="row">{escape(projects[row.project].name)}</th><td>{escape(activity_span)}</td><td>{escape(entry)}</td><td>{row.billed:.1f}</td><td>{escape(detail)}</td></tr>')
     out.append('</tbody></table><h2>Summary</h2><pre>')
     out.append(escape("\n".join(summary_lines(result, projects, titles))))
     out.append('</pre>')

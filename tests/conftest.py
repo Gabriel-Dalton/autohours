@@ -62,7 +62,16 @@ def switching_activity(origin):
 @pytest.fixture(autouse=True)
 def offline(monkeypatch):
     import socket
+    from autohours import credentials
 
     def forbidden(*args, **kwargs):
         raise AssertionError("Tests must not access the network")
     monkeypatch.setattr(socket.socket, "connect", forbidden)
+    monkeypatch.delenv("CLOCKIFY_API_KEY", raising=False)
+    monkeypatch.setattr(credentials, "windows_key", lambda: "")
+
+
+@pytest.fixture(autouse=True)
+def private_test_config(tmp_path, monkeypatch):
+    from autohours import credentials
+    monkeypatch.setattr(credentials, "credential_path", lambda: tmp_path / "credentials")

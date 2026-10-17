@@ -6,6 +6,16 @@ from urllib.parse import quote
 from .models import UserError
 
 
+def money(amount, currency):
+    if amount is None:
+        return "not set"
+    return f"{Decimal(str(amount)) / 100:.2f} {currency or 'currency not set'}/h"
+
+
+def billable(value):
+    return "billable" if value is True else "not billable" if value is False else "not set"
+
+
 def compare(destination, apply=False):
     destination.check()
     http = destination.http
@@ -20,7 +30,9 @@ def compare(destination, apply=False):
             continue
         path = base + "/projects/" + quote(destination.project_ids[project.destination_project], safe="")
         current = http.request("GET", path)
-        messages.append(f"{project.name}: billable {current.get('billable')} -> {project.billable}")
+        changed = current.get("billable") != project.billable
+        if changed:
+            messages.append(f"{project.name}: {billable(current.get('billable'))} -> {billable(project.billable)}")
         amount = None
         permitted = True
         if agreement["billing"] == "hourly":
@@ -38,8 +50,13 @@ def compare(destination, apply=False):
                     raise UserError(f"{project.name}: Clockify rates require at most two decimal places and a 32-bit amount in cents.")
                 amount = int(cents)
                 rate = current.get("hourlyRate") or {}
-                messages.append(f"{project.name}: hourly rate {rate.get('amount', 'not set')} cents {rate.get('currency', currency)} -> {amount} cents {currency}")
-        if not apply or not permitted:
+                if rate.get("amount") != amount or rate.get("currency") != currency:
+                    changed = True
+                    messages.append(f"{project.name}: hourly rate {money(rate.get('amount'), rate.get('currency', currency))} -> {money(amount, currency)}")
+        if not changed and permitted:
+            rate_text = f", {money(amount, currency)}" if amount is not None else ""
+            messages.append(f"{project.name}: in sync ({billable(project.billable)}{rate_text})")
+        if not apply or not permitted or not changed:
             continue
         body = {key: current[key] for key in ("name", "color", "clientId", "archived", "note") if key in current}
         # API defaults isPublic to false, which fails for free workspaces.
@@ -54,6 +71,6 @@ def compare(destination, apply=False):
         good = effective.get("billable") == project.billable
         if amount is not None:
             good = good and rate.get("amount") == amount and rate.get("currency") == currency
-        messages.append(f"{project.name}: {'confirmed' if good else 'MISMATCH after readback'}; billable={effective.get('billable')}, hourly rate={rate.get('amount', 'not set')} cents {rate.get('currency', 'not set')}.")
+        messages.append(f"{project.name}: {'confirmed' if good else 'MISMATCH after readback'}; {billable(effective.get('billable'))}, hourly rate={money(rate.get('amount'), rate.get('currency'))}.")
         failed = failed or not good
     return messages, failed

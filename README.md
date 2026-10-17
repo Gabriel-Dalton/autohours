@@ -14,6 +14,48 @@ ActivityWatch on your computer
 
 autohours supports ActivityWatch, Clockify and CSV. Small source and destination interfaces leave room for future integrations such as Toggl and Harvest.
 
+## Quick start
+
+**No coding needed.** Open PowerShell on Windows, or Terminal on macOS/Linux, and paste one line.
+
+Windows:
+
+```powershell
+irm https://raw.githubusercontent.com/Gabriel-Dalton/autohours/main/install.ps1 | iex
+```
+
+macOS and Linux:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Gabriel-Dalton/autohours/main/install.sh | sh
+```
+
+The installer checks Python, installs pipx and autohours, and starts the setup questions. On Windows it can install Python with winget. On macOS/Linux it explains how to install Python if needed. Git is needed to download the package. You can inspect [install.ps1](install.ps1) or [install.sh](install.sh) before running it.
+
+Already installed? Run:
+
+```sh
+autohours setup
+```
+
+The wizard helps you open ActivityWatch, confirm your time zone, choose Clockify or a spreadsheet, and pick activity that belongs to each client. You choose numbered items and confirm keywords. You never need to edit a file or write a regular expression. It asks about each project's billing agreement one question at a time, without assuming a rate or currency.
+
+Press Enter for a bracketed default. Type `back` to revisit the previous answer or `quit` to stop; Ctrl+C also exits cleanly. Your config stays unchanged until you confirm the summary. Once a change is saved, going back does not undo it. Existing configs offer adding a project or starting over. To add a project directly:
+
+```sh
+autohours setup --add-project
+```
+
+Clockify setup asks for your key using hidden input. Find it in **Profile settings > API > Generate**. Never paste it into chat. The key never goes in `autohours.toml`. Windows saves `CLOCKIFY_API_KEY` in your user environment. macOS/Linux save a private `credentials` file beside the default user config, with permissions 600. Environment variables take priority. To remove the saved key, delete the Windows user environment variable, or delete the credentials file and unset any shell variable. Revoke the key in Clockify if needed.
+
+Setup checks your settings, shows rate differences when applicable, and reviews yesterday (or today if yesterday has no matching blocks). It asks separately before applying rates, writing that day's entries, or scheduling daily writes. The schedule defaults to 6:00 AM on your computer's clock. To remove it:
+
+```sh
+autohours schedule --remove
+```
+
+The last seven days' activity list contains private local window titles. Do not share it without reviewing it. Matching rules stay local. Only fixed descriptions and approved times go to the destination.
+
 ## Requirements
 
 - Windows, macOS or Linux, with Python 3.11 or newer.
@@ -22,7 +64,7 @@ autohours supports ActivityWatch, Clockify and CSV. Small source and destination
 
 The application uses only Python's standard library, plus the `tzdata` time zone package, which is installed automatically on Windows. pytest is for development only. Wayland desktop restrictions can prevent ActivityWatch from capturing window titles; check its dashboard before setup.
 
-## Five-minute quickstart
+## Advanced: edit the config yourself
 
 1. Install and open ActivityWatch. Visit `http://localhost:5600` and check that it records windows and active time. You need some recorded activity before previews are useful.
 2. For Clockify, create your workspace and projects, then get an API key from **Profile settings**. Skip this step for CSV.
@@ -48,7 +90,7 @@ The application uses only Python's standard library, plus the `tzdata` time zone
    python -m pip install .
    ```
 
-   Alternatively, use `pipx install .`, or `pipx install git+https://YOUR_REPOSITORY_URL`. Replace the URL with the actual published Git repository URL. If your system calls Python `python3`, use that instead of `python`.
+   Alternatively, use `pipx install .`, or `pipx install git+https://github.com/Gabriel-Dalton/autohours`. If your system calls Python `python3`, use that instead of `python`.
 
 5. Create and edit your settings:
 
@@ -76,7 +118,7 @@ The application uses only Python's standard library, plus the `tzdata` time zone
    autohours sync yesterday --write
    ```
 
-`preview` needs no Clockify key. `sync` without `--write` checks existing destination entries and prints the proposed entries after destination cap accounting. `init` creates only the starter config and refuses to overwrite it. No timesheet entry or CSV file is written unless `--write` is passed.
+`preview` needs no Clockify key. `sync` without `--write` checks existing destination entries and prints the proposed entries after destination cap accounting. `init` creates only the starter config and refuses to overwrite it. Manual commands write timesheets only with `--write`. The setup wizard runs it only after a separate yes.
 
 ## Commands and config location
 
@@ -88,7 +130,7 @@ autohours rules test "Acme planning" --app "Browser" --url "https://acme.example
 autohours --config /path/to/autohours.toml sync yesterday --write
 ```
 
-The default date is today. Two dates include both the start and end day, in your configured timezone. Today stops at the current time. Future-only periods are rejected. Previews include offsets to distinguish repeated hours when daylight saving time ends.
+The default date is today. Two dates include both the start and end day, in your configured timezone. Today stops at the current time. Future-only periods are rejected. Reviews show dates as headings and local times such as `10:23 to 11:32`. Repeated daylight saving hours include offsets so they remain distinguishable.
 
 The global `--config PATH` option goes before the command. Otherwise, autohours checks `./autohours.toml`, then:
 
@@ -167,13 +209,13 @@ Unmatched titles appear in your local terminal so you can improve rules. Termina
 
 ## Scheduling
 
-After reviewing a successful manual write, schedule `autohours sync yesterday --write` daily. Use an absolute config path, the installed executable's full path, and a scheduler account with the API key available. See [Windows, macOS and Linux examples](docs/scheduling.md). Run only one scheduled instance for each destination.
+After reviewing a successful manual write, the setup wizard can schedule `autohours sync yesterday --write` daily. It previews the commands and asks for separate approval. It uses absolute paths, the installed Python environment, and your user account. Remove its daily job with `autohours schedule --remove`. See [Windows, macOS and Linux examples](docs/scheduling.md) for manual alternatives. Run only one scheduled instance for each destination.
 
 ## Set it up with Claude Code or Codex
 
 For Claude Code, copy `skills/autohours-setup/` from this repository into `~/.claude/skills/`. On Windows this is inside your user folder. Then ask: "Use autohours-setup to help me turn my ActivityWatch activity into timesheets."
 
-Codex and other agents can use [AGENTS.md](AGENTS.md). Ask them to inspect a few days of unmatched activity locally, propose project rules and show a preview. Review before approving the first `--write`. The [setup skill](skills/autohours-setup/SKILL.md) walks through this process without assuming you are a programmer.
+Codex and other agents can use [AGENTS.md](AGENTS.md). Prefer `autohours setup` in your own terminal. Agents can walk through the same questions and edit the config on your behalf; you should never have to write a regex. If you want help choosing rules, let them inspect a few days of unmatched activity locally and show a preview. Review before approving the first `--write`. The [setup skill](skills/autohours-setup/SKILL.md) walks through this process without assuming you are a programmer.
 
 ## FAQ
 

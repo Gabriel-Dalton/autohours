@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0
+
+- Add one-line Windows, macOS and Linux installers that start interactive setup.
+- Set up CSV or Clockify through numbered questions, with back, quit and add-project flows.
+- Build escaped project rules from seven days of local activity and confirm project agreements.
+- Verify and save Clockify keys outside TOML, using a Windows user variable or a private credentials file.
+- Preview daily scheduling, require approval, and add `schedule --remove` for undo.
+- Prevent concurrent writers using the same config.
+- Display rates as money per hour and report unchanged settings as in sync.
+- Show local review times under date headings, preserving offsets during repeated daylight saving hours.
+- Put no-code setup first in the README and update the agent setup workflow.
+
 ## 0.2.0
 
 - Validate ActivityWatch time against project agreements and shared policy defaults.

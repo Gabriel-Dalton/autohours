@@ -1,5 +1,13 @@
 # Run yesterday's sync daily
 
+The easiest route is `autohours setup`. After an approved manual write, it offers a daily run at 06:00 by default. It shows the exact task command, launchd plist, or new user crontab before asking for approval. Times use the computer's clock. One autohours daily schedule is managed per user account; creating another replaces it. Other cron jobs remain intact. Remove the generated job with `autohours schedule --remove`.
+
+The generated schedule uses the absolute path of the Python environment running setup and an absolute config path. Writers using the same config cannot overlap. Different configs that share a destination still need separate coordination. macOS and Linux logs are private files in the user config directory. Windows uses Task Scheduler's task history and result status.
+
+Clockify keys saved by setup are available to future runs: the Windows user environment, or the private `credentials` file in the default user config folder on macOS/Linux. The `CLOCKIFY_API_KEY` environment variable takes priority. No key is put in a task command, plist or crontab. If you use this saved key, the manual environment and wrapper steps below are unnecessary.
+
+## Manual alternatives
+
 First run `doctor`, `preview yesterday` and a manually approved `sync yesterday --write`. Set an absolute config path and executable path. Find the executable with `Get-Command autohours` in PowerShell or `command -v autohours` on macOS/Linux. Replace example paths with your own. These examples run at 18:00, when a laptop is more likely to be awake. The computer must have ActivityWatch running and recording during work.
 
 Each job runs `autohours sync yesterday --write`. The date is evaluated in the config's timezone; the scheduler's clock determines when the job starts. CSV needs no API key. Clockify needs `CLOCKIFY_API_KEY` in the job's environment. Never put a real key in the config, task command, plist or repository. These commands create schedules that write automatically; use them only after approving that behavior.

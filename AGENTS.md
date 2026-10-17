@@ -13,11 +13,13 @@ Keep `src/autohours/starter.toml` and `examples/autohours.example.toml` identica
 
 ## Helping someone set up timesheets
 
+Prefer `autohours setup` in the user's own interactive terminal, or `autohours setup --add-project` for an existing config. Agents may follow its steps and edit the config on the user's behalf. Never make a non-technical user edit a file or write a regex. Keys must be entered by the user at the hidden local prompt, never through chat or an agent transcript.
+
 Use the conversational workflow in [the setup skill](skills/autohours-setup/SKILL.md). Check ActivityWatch is running and recording both windows and AFK time. Ask for timezone, destination and project intent. Preserve their config; `init` refuses to overwrite it.
 
 Explain that unmatched output contains local private titles before inspecting several days with `autohours unmatched DATE`. Propose project rules from actual activity and ask about ambiguous work. Do not upload raw activity or paste it into shared artifacts. Use a user's own summary if they prefer. Put specific rules first; any matching regex wins for the first project. Confirm descriptions and billable status.
 
-For Clockify, have the user set `CLOCKIFY_API_KEY` from Profile settings without revealing it in chat. Never put the key in TOML, scripts or the repository. Use CSV while destination decisions are pending.
+For Clockify, prefer the wizard's hidden key prompt (Profile settings, API, Generate) without revealing it in chat. Setup saves a Windows user environment variable, or a mode-600 credentials file in the user config folder on macOS/Linux. `CLOCKIFY_API_KEY` overrides the file. Never put the key in TOML, scripts or the repository. Use CSV while destination decisions are pending.
 
 When adding a project, ask about its agreement one question at a time: billing type, rate and currency, counted breaks, calls when away, rounding, then monthly cap. Never assume a rate or currency. Write the confirmed agreement under that project, using `[policy]` only for defaults the user wants shared. Billing type controls billable status; `none` is non-billable. For Clockify, run `autohours rates` and show the differences. Only run `rates --apply` after the user confirms the exact project, billable flag, rate and currency. Check readback for mismatches.
 
@@ -27,4 +29,4 @@ Write settings, run `doctor`, test representative titles with `rules test`, then
 
 HTML reviews omit titles unless `--titles` is explicit. Keep reviews, accepted files and scheduler logs private and outside source control. Do not create test caches, scratch folders, build or dist output inside the repository; use the system temp directory and disable bytecode and pytest caches during checks.
 
-Scheduling requires approval to automate future writes. Use absolute paths and private environment settings from [scheduling](docs/scheduling.md). Daily yesterday runs do not backfill all missed days. Keep scheduler logs private because previews can include titles.
+Setup previews the exact schedule and requires separate approval to automate future writes. `autohours schedule --remove` undoes the generated daily job. Use absolute paths and private environment settings from [scheduling](docs/scheduling.md). Daily yesterday runs do not backfill all missed days. Keep scheduler logs private because previews can include titles.
