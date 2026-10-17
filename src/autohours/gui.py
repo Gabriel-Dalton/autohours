@@ -8,11 +8,12 @@ from queue import Empty, Queue
 import sys
 from threading import Thread
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, font, messagebox, ttk
 import webbrowser
 from zoneinfo import ZoneInfo, available_timezones
 
-from . import schedule, setup, theme
+from . import schedule, setup, theme, window
+from .desktop import activity_label
 from .desktop import Session, agreement, full_report, nightly_status, open_settings
 from .models import UserError
 from .review import reasons, span, text_review
@@ -49,13 +50,12 @@ class App:
         self.home_view = 0
         self.zone_initialized = session.original is not None
         self.root.title("autohours")
+        self.scale, work_area = window.metrics(root)
         self.colors = theme.apply(root)
         self.icon = theme.icon(root, self.colors["accent"])
-        self.scale = max(1, float(root.tk.call("tk", "scaling")) / (96 / 72))
-        screen_width = max(640, root.winfo_screenwidth() - 64)
-        screen_height = max(480, root.winfo_screenheight() - 100)
-        self.root.geometry(f"{min(self.px(1040), screen_width)}x{min(self.px(760), screen_height)}")
-        self.root.minsize(min(self.px(860), screen_width), min(self.px(540), screen_height))
+        width, height, x, y = window.initial_geometry(self.scale, work_area)
+        self.root.geometry(f"{width}x{height}+{x}+{y}")
+        self.root.minsize(min(self.px(860), width), min(self.px(540), height))
         self.status = tk.StringVar(value="")
         self.sidebar = ttk.Frame(root, padding=(12, 24), width=self.px(220))
         self.sidebar.pack(side="left", fill="y")
@@ -453,6 +453,7 @@ class App:
         items = ttk.Frame(columns, padding=(0, 0, 14, 0))
         items.grid(row=0, column=0, sticky="nsew")
         self.search, _ = self.entry("Search apps, sites and titles", parent=items)
+        self.button("Refresh activity", self.read_activity, items, "Link.TButton")
         self.search.trace_add("write", lambda *_: self.render_items())
         self.item_panel = ttk.Frame(items)
         self.item_panel.pack(fill="both", expand=True)
@@ -466,11 +467,14 @@ class App:
         for i, row in enumerate(self.session.raw["projects"]):
             self.projects.insert("", "end", iid=str(i), text=row["name"], tags=("odd" if i % 2 else "even",))
         self.projects.bind("<<TreeviewSelect>>", lambda _: self.render_items())
-        self.button("Add project", self.add_project, right)
-        self.button("Move up", self.move_project, right)
-        self.button("Edit description", self.edit_description, right)
-        self.button("Remove project", self.remove_project, right)
-        self.button("Refresh activity", self.read_activity, right)
+        actions = ttk.Frame(right)
+        actions.pack(fill="x", pady=(6, 0))
+        for column, (label, command) in enumerate((("Add", self.add_project),
+                ("Move up", self.move_project), ("Edit", self.edit_description),
+                ("Remove", self.remove_project))):
+            ttk.Button(actions, text=label, command=command, width=0,
+                       style="Compact.TButton").grid(row=0, column=column, sticky="ew")
+            actions.columnconfigure(column, weight=1)
         if self.session.raw["projects"]:
             self.projects.selection_set("0")
         self.render_items()
@@ -540,7 +544,8 @@ class App:
         query = self.search.get().strip().casefold()
         count = 0
         for i, ((kind, text), minutes) in enumerate(self.session.items):
-            if query and query not in f"{kind} {text}".casefold():
+            display = activity_label(kind, text)
+            if query and query not in f"{kind} {text} {display}".casefold():
                 continue
             count += 1
             variable = tk.BooleanVar(value=setup.item_rule(kind, text) in row.get(kind, []))
@@ -549,23 +554,46 @@ class App:
                 self.saved = False
                 self.render_items(i)
                 self.update_coverage()
-            item = ttk.Frame(self.item_panel, padding=(0, 5))
+            item = ttk.Frame(self.item_panel)
             item.pack(fill="x")
-            short = text if len(text) <= 34 else text[:31] + "..."
-            widget = ttk.Checkbutton(item, text=f"{kind}: {short}",
-                                      variable=variable, command=changed)
+            item.columnconfigure(0, weight=1)
+            item.rowconfigure(0, minsize=self.px(36))
+            widget = ttk.Checkbutton(item, text=display,
+                                      style="Activity.TCheckbutton", variable=variable, command=changed)
             widget.variable = variable
             if index is None:
                 widget.state(["disabled"])
-            widget.pack(anchor="w", fill="x")
+            widget.grid(row=0, column=0, sticky="ew")
+            hours = ttk.Label(item, text=f"{minutes / 60:.1f} h", style="Helper.TLabel",
+                              anchor="e")
+            hours.grid(row=0, column=1, sticky="e", padx=(4, 0))
+            text_font = font.Font(root=self.root, font=ttk.Style(self.root).lookup(
+                "Activity.TCheckbutton", "font"))
+            def fit_label(item=item, widget=widget, hours=hours, display=display,
+                          text_font=text_font, last_width=[None]):
+                if not item.winfo_exists():
+                    return
+                width = item.winfo_width()
+                if width <= 1 or width == last_width[0]:
+                    return
+                last_width[0] = width
+                name, kind_label = display.rsplit("  ·  ", 1)
+                suffix = "  ·  " + kind_label
+                available = max(0, width - hours.winfo_reqwidth() - 4 - self.px(38))
+                short = name
+                while short and text_font.measure(short + suffix) > available:
+                    name = name[:-1]
+                    short = name + "..." if name else ""
+                widget.configure(text=short + suffix)
+            # Measure the allocated row after layout, never the text's requested width.
+            item.bind("<Configure>", lambda event, fit=fit_label: self.root.after_idle(fit))
+            self.root.after_idle(fit_label)
             if focus_item == i:
                 widget.focus_set()
-            detail = ttk.Frame(item)
-            detail.pack(fill="x", padx=(6, 0))
-            ttk.Label(detail, text=f"{minutes / 60:.1f} h", style="Helper.TLabel").pack(side="right")
             owners = [p["name"] for p in self.session.raw["projects"] if setup.item_rule(kind, text) in p.get(kind, [])]
             if owners:
-                self.label(", ".join(owners), detail, "Tag.TLabel")
+                ttk.Label(item, text=", ".join(owners), style="Tag.TLabel").grid(
+                    row=1, column=0, columnspan=2, sticky="w", padx=6)
         if not count:
             self.label("No activity matches your search." if query else "No activity items yet.", self.item_panel, "Helper.TLabel")
         if index is None:

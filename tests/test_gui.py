@@ -232,6 +232,7 @@ def test_timezone_fallback_and_saved_choice_not_overridden(hidden_root, tmp_path
 @pytest.mark.parametrize("scale", [1.25, 1.5])
 def test_scaled_screens_and_palette(hidden_root, tmp_path, monkeypatch, dark, scale):
     hidden_root.tk.call("tk", "scaling", scale * 96 / 72)
+    monkeypatch.setattr(gui.window, "metrics", lambda root: (scale, (0, 0, 1920, 1040)))
     monkeypatch.setattr(theme, "system_dark", lambda: dark)
     monkeypatch.setattr(gui.App, "work", lambda *args: None)
     monkeypatch.setattr(gui.App, "read_activity", lambda *args: None)
@@ -273,7 +274,7 @@ def test_search_filters_without_reassigning_and_agreement_drafts_survive(hidden_
                 labels.append(child.cget("text"))
             visit(child)
     visit(app.item_panel)
-    assert labels == ["url: example.test"]
+    assert labels == ["example.test  ·  Website"]
     app.show_step(6)
     app.agreement_fields[0][1]["rate"].set("123")
     app.go_back_to(5)
@@ -320,3 +321,89 @@ def test_nightly_time_readback_is_read_only(monkeypatch):
     assert calls == [["schtasks", "/Query", "/TN", desktop.schedule.TASK, "/XML"]]
     monkeypatch.setattr(desktop.schedule, "enabled", lambda: False)
     assert desktop.nightly_status() == "Off"
+
+
+@pytest.mark.parametrize("scale", [1, 1.25, 1.5])
+def test_activity_rows_and_project_actions_stay_inline(hidden_root, tmp_path, monkeypatch, scale):
+    monkeypatch.setattr(gui.window, "metrics", lambda root: (scale, (0, 0, 1920, 1040)))
+    hidden_root.tk.call("tk", "scaling", scale * 96 / 72)
+    monkeypatch.setattr(gui.App, "work", lambda *args: None)
+    monkeypatch.setattr(gui.App, "read_activity", lambda *args: None)
+    value = session(tmp_path)
+    value.raw["projects"][0]["app"] = []
+    value.items = [(("app", "WindowsTerminal.exe"), 60), (("title", "✳ Example title"), 30)]
+    app = gui.App(hidden_root, value)
+    app.show_step(5)
+    hidden_root.deiconify()
+    hidden_root.update()
+    checks = [w for w in descendants(app.item_panel) if isinstance(w, gui.ttk.Checkbutton)]
+    for check in checks:
+        hours = next(w for w in check.master.winfo_children() if isinstance(w, gui.ttk.Label))
+        assert check.grid_info()["row"] == hours.grid_info()["row"] == 0
+        assert hours.cget("style") == "Helper.TLabel"
+        assert hours.winfo_rootx() >= check.winfo_rootx() + check.winfo_width()
+        assert check.master.winfo_height() <= app.px(38)
+    assert app.projects.winfo_rootx() >= app.item_panel.winfo_rootx() + app.item_panel.winfo_width()
+    buttons = [w for w in descendants(app.page) if isinstance(w, gui.ttk.Button)]
+    actions = [next(w for w in buttons if w.cget("text") == text) for text in ("Add", "Move up", "Edit", "Remove")]
+    assert len({w.winfo_rooty() for w in actions}) == 1
+    assert actions[-1].winfo_rootx() + actions[-1].winfo_width() <= app.page.winfo_rootx() + app.page.winfo_width()
+    refresh = next(w for w in buttons if w.cget("text") == "Refresh activity")
+    assert refresh.cget("style") == "Link.TButton"
+    assert refresh.master == app.item_panel.master
+    app.search.set("Windows Terminal")
+    checks = [w for w in descendants(app.item_panel) if isinstance(w, gui.ttk.Checkbutton)]
+    assert len(checks) == 1
+    checks[0].invoke()
+    assert value.raw["projects"][0]["app"] == [r"^WindowsTerminal\.exe$"]
+    app.search.set("Example title")
+    check = next(w for w in descendants(app.item_panel) if isinstance(w, gui.ttk.Checkbutton))
+    check.invoke()
+    assert value.raw["projects"][0]["title"] == [setup.item_rule("title", "✳ Example title")]
+
+
+@pytest.mark.parametrize("kind,raw,expected", [
+    ("app", "WindowsTerminal.exe", "Windows Terminal  ·  App"),
+    ("app", "chrome.exe", "Google Chrome  ·  App"),
+    ("app", "WINWORD.EXE", "Word  ·  App"),
+    ("app", "SomeHTTPTool.exe", "Some HTTP Tool  ·  App"),
+    ("title", " ✳ ★ Weekly planning notes", "Weekly planning notes  ·  Window title"),
+    ("url", "github.com", "github.com  ·  Website"),
+])
+def test_activity_display_names(kind, raw, expected):
+    assert desktop.activity_label(kind, raw) == expected
+
+
+@pytest.mark.parametrize("scale", [1, 1.25, 1.5])
+def test_step_six_friendly_names_survive_layout(hidden_root, tmp_path, monkeypatch, scale):
+    monkeypatch.setattr(gui.window, "metrics", lambda root: (scale, (0, 0, 1080, 1920)))
+    hidden_root.tk.call("tk", "scaling", scale * 96 / 72)
+    monkeypatch.setattr(theme, "system_dark", lambda: True)
+    monkeypatch.setattr(gui.App, "work", lambda *args: None)
+    monkeypatch.setattr(gui.App, "read_activity", lambda *args: None)
+    value = session(tmp_path)
+    value.items = [(("app", "WindowsTerminal.exe"), 60),
+                   (("app", "chrome.exe"), 30),
+                   (("title", "Synthetic activity " * 30), 15)]
+    app = gui.App(hidden_root, value)
+    app.show_step(5)  # The sixth user-visible step, Projects and rules.
+    # Widgets only get real sizes once mapped, so show the root off screen.
+    hidden_root.geometry("+-4000+-4000")
+    hidden_root.deiconify()
+    app.resize(SimpleNamespace(width=780))
+    hidden_root.update()
+    checks = [w for w in descendants(app.item_panel) if isinstance(w, gui.ttk.Checkbutton)]
+    assert len(checks) == 3
+    for check, start in zip(checks, ("Windows Terminal", "Google Chrome", "Synthetic")):
+        assert check.master.winfo_width() > 100
+        assert len(check.cget("text")) > 3
+        assert check.cget("text").startswith(start)
+    long_text = checks[-1].cget("text")
+    assert "..." in long_text
+    app.resize(SimpleNamespace(width=650))
+    hidden_root.update()
+    narrow_text = checks[-1].cget("text")
+    assert len(narrow_text) < len(long_text)
+    app.resize(SimpleNamespace(width=780))
+    hidden_root.update()
+    assert len(checks[-1].cget("text")) > len(narrow_text)

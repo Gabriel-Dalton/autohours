@@ -23,7 +23,8 @@ DISABLED_SURFACES = dict.fromkeys((
     "Number.TLabel", "Helper.TLabel", "Footer.TLabel", "Tag.TLabel", "Success.TLabel",
     "Warning.TLabel", "Danger.TLabel", "Pending.Nav.TLabel", "TButton",
     "Secondary.TButton", "Nav.TButton", "Current.Nav.TButton", "Tile.TButton",
-    "Primary.TButton", "TEntry", "TCombobox", "TCheckbutton", "TRadiobutton",
+    "Primary.TButton", "Compact.TButton", "Link.TButton", "Activity.TCheckbutton",
+    "TEntry", "TCombobox", "TCheckbutton", "TRadiobutton",
     "Treeview", "Treeview.Heading", "Horizontal.TScale", "Vertical.TScale",
     "TProgressbar", "Horizontal.TProgressbar", "Vertical.TProgressbar"), "card")
 DISABLED_SURFACES.update(dict.fromkeys(("Page.TFrame", "Title.TLabel", "Subtitle.TLabel",
@@ -158,6 +159,10 @@ def apply(root, dark=None):
             for option in ("lightcolor", "darkcolor"):
                 style.map(name, **{option: [("focus", colors["border"]), ("!focus", colors["border"])]})
     style.configure("Nav.TButton", anchor="w", padding=(10, 10))
+    style.configure("Compact.TButton", padding=(4, 5), font=(family, 9))
+    style.configure("Link.TButton", padding=(0, 2), borderwidth=0, relief="flat",
+                    font=(family, 10), foreground=colors["accent_text"], background=colors["card"])
+    style.map("Link.TButton", background=[("active", colors["stripe"])])
     style.configure("Pending.Nav.TLabel", padding=(10, 10), foreground=colors["muted"],
                     borderwidth=0, relief="flat")
     style.configure("Current.Nav.TButton", font=(family, 11, "bold"), background=colors["selected"])
@@ -192,6 +197,7 @@ def apply(root, dark=None):
         style.map(name, background=[("active", colors["stripe"])],
                   foreground=[("disabled", colors["muted"])],
                   indicatorbackground=[("selected", colors["accent_text"])])
+    style.configure("Activity.TCheckbutton", padding=(2, 3), font=(family, 10))
     # A character row grows with the font at high DPI instead of clipping text.
     scale = max(1, float(root.tk.call("tk", "scaling")) / (96 / 72))
     rowheight = max(round(32 * scale), font.nametofont("TkDefaultFont", root).metrics("linespace") + 12)

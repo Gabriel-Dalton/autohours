@@ -6,6 +6,8 @@ from datetime import datetime, timedelta, timezone
 import io
 import os
 import plistlib
+import re
+import unicodedata
 from pathlib import Path
 import tempfile
 import tomllib
@@ -21,6 +23,30 @@ from .models import UserError
 from .plugins import DESTINATIONS, SOURCES
 from .rates import compare
 from .review import html_review
+
+
+APP_NAMES = dict(zip(
+    ("chrome", "msedge", "firefox", "brave", "code", "windowsterminal", "explorer",
+     "slack", "teams", "zoom", "outlook", "winword", "excel", "powerpnt", "figma",
+     "notion", "spotify", "whatsapp", "discord", "chatgpt", "claude"),
+    ("Google Chrome", "Microsoft Edge", "Firefox", "Brave", "Visual Studio Code",
+     "Windows Terminal", "File Explorer", "Slack", "Microsoft Teams", "Zoom",
+     "Outlook", "Word", "Excel", "PowerPoint", "Figma", "Notion", "Spotify",
+     "WhatsApp", "Discord", "ChatGPT", "Claude")))
+
+
+def activity_label(kind, raw):
+    """Presentation only: assignment and rule matching always use the raw item."""
+    text = raw
+    if kind == "app":
+        text = re.sub(r"\.exe$", "", text, flags=re.IGNORECASE)
+        text = APP_NAMES.get(text.casefold(), re.sub(
+            r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", " ", text))
+    elif kind == "title":
+        text = text.lstrip()
+        while text and (unicodedata.category(text[0]).startswith("S") or text[0] == "\ufe0f"):
+            text = text[1:].lstrip()
+    return f"{text}  ·  {dict(app='App', title='Window title', url='Website')[kind]}"
 
 
 def agreement(values, previous=None):
