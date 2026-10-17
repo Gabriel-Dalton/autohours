@@ -1,0 +1,58 @@
+# Copy this file to autohours.toml, or run autohours init.
+# Set your IANA timezone. Windows may need: pip install tzdata.
+timezone = "America/Vancouver"
+
+[activitywatch]
+# ActivityWatch must run locally. /api/0 is added automatically if omitted.
+url = "http://localhost:5600"
+# Leave hostname unset for one computer. With several hosts, choose exactly one.
+# hostname = "my-laptop"
+# Optional browser extension data. Only foreground-title matches supply URLs.
+use_web = false
+
+[blocks]
+# Bridge missing/AFK gaps up to this length, including the gap in elapsed time.
+# Use 0 for strict active time. Other projects and unmatched activity are barriers.
+merge_gap_minutes = 5
+# Discard blocks shorter than this many minutes after rounding.
+min_block_minutes = 10
+# 0 disables rounding. Otherwise trim inward to UTC multiples of this many minutes.
+round_to_minutes = 0
+
+[destination]
+# Start with a local CSV. Relative paths are relative to this config's folder.
+type = "csv"
+path = "timesheet.csv"
+# For Clockify, replace the two lines above with:
+# type = "clockify"
+# workspace = "My workspace"
+# workspace accepts an exact name or ID. Create projects in Clockify first.
+# Set CLOCKIFY_API_KEY in your environment, NEVER in this file.
+
+# Put specific projects above general ones. The first matching project wins.
+# Any regex in title, app OR url is enough. All matches ignore letter case.
+# Single-quoted TOML strings preserve regex backslashes without extra escaping.
+[[projects]]
+name = "Acme Corp"
+# Destination name defaults to name; exact project names or IDs work in Clockify.
+destination_project = "Acme Corp"
+# Only this fixed description is exported, never window titles or URLs.
+description = "Project work"
+billable = true
+title = ['Acme', 'acme-workspace']
+app = []
+url = ['^https://acme\.example/']
+
+[[projects]]
+name = "Side project"
+description = "Development"
+billable = false
+title = ['side-project']
+
+[[projects]]
+name = "Learning"
+description = "Study"
+billable = false
+title = ['tutorial', 'course notes']
+# App-only rules are broad. Add them only when every use belongs to this project.
+# app = ['^StudyApp$']
