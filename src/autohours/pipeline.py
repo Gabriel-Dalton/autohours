@@ -1,7 +1,6 @@
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field, replace
 from datetime import datetime, time, timedelta, timezone
-import math
 import re
 
 from .models import Activity, Block, Project
@@ -40,6 +39,7 @@ class ReviewBlock:
     rounding: float = 0
     held: float = 0
     filtered: bool = False
+    entry_start: datetime | None = None
 
 
 def agreement(project):
@@ -101,33 +101,6 @@ def active_slices(activity: Activity, projects, start, end, include_away=False):
     return slices
 
 
-def minute_winners(slices):
-    """Choose greatest active duration per UTC minute; ties follow config order."""
-    minutes = defaultdict(list)
-    for item in slices:
-        a = item.start
-        while a < item.end:
-            floor = a.replace(second=0, microsecond=0)
-            b = min(item.end, floor + timedelta(minutes=1))
-            minutes[floor].append(replace(item, start=a, end=b))
-            a = b
-    result = []
-    discarded = 0
-    for pieces in minutes.values():
-        totals = defaultdict(float)
-        for s in pieces:
-            totals[s.project] += (s.end - s.start).total_seconds()
-        winner = min(totals, key=lambda p: (-totals[p], p if p is not None else math.inf))
-        for s in pieces:
-            if s.project is not None and s.project != winner:
-                discarded += (s.end - s.start).total_seconds()
-                # Keep a barrier so another project cannot bridge discarded work.
-                result.append(Slice(s.start, s.end, None, s.app, s.title))
-            else:
-                result.append(s)
-    return sorted(result, key=lambda s: s.start), discarded / 60
-
-
 def build(activity, projects, settings, start, end, zone, accepted=(), caps=True):
     raw = active_slices(activity, projects, start, end, include_away=True)
     # Explicit acceptance replaces evidence, never adds duplicate time.
@@ -152,15 +125,15 @@ def build(activity, projects, settings, start, end, zone, accepted=(), caps=True
         if s.project is None and s.kind != "excluded-away":
             unmatched[(s.app, s.title)] += s.minutes
     eligible = [s for s in raw if s.kind != "excluded-away"]
-    accepted_slices = [s for s in eligible if s.kind == "accepted"]
-    slices, discarded = minute_winners([s for s in eligible if s.kind != "accepted"])
-    slices = sorted(slices + accepted_slices, key=lambda s: s.start)
+    # The boundary sweep already resolves overlapping evidence. Preserve exact
+    # seconds even when multiple projects share a calendar minute.
+    discarded = 0
     merged = []
-    current = None
-    for s in slices:
+    pending = {}
+    for position, s in enumerate(eligible):
         if s.project is None:
-            current = None
             continue
+        current = pending.get(s.project)
         a = s.start
         while a < s.end:
             day = a.astimezone(zone).date()
@@ -177,19 +150,26 @@ def build(activity, projects, settings, start, end, zone, accepted=(), caps=True
                     for left, right in away:
                         covered += max(0, (right - max(cursor, left)).total_seconds() / 60)
                         cursor = max(cursor, right)
-                    counted = gap <= agreement(projects[s.project])["count_breaks_up_to_minutes"] and covered >= gap - 1e-9
-                    current.segments.append(Slice(current.end, a, s.project, "", "", "counted-break" if counted else "excluded-away"))
+                    # Another project's calls/accepted work can overlap AFK
+                    # evidence. Never count that time again as a break.
+                    interrupted = position > 0 and eligible[position - 1].end > current.end
+                    is_away = covered >= gap - 1e-9 and not interrupted
+                    counted = is_away and gap <= agreement(projects[s.project])["count_breaks_up_to_minutes"]
+                    kind = "counted-break" if counted else "excluded-away" if is_away else "interruption"
+                    current.segments.append(Slice(current.end, a, s.project, "", "", kind))
                 current.end = b
                 current.segments.append(replace(s, start=a, end=b))
             else:
                 current = ReviewBlock(a, b, s.project, [replace(s, start=a, end=b)], 0)
                 merged.append(current)
+                pending[s.project] = current
             a = b
-    blocks = []
-    for index, row in enumerate(merged):
+    candidates = []
+    for row in merged:
         p = projects[row.project]
         policy = agreement(p)
-        worked = sum((s.end - s.start for s in row.segments if s.kind != "excluded-away"), timedelta())
+        worked = sum((s.end - s.start for s in row.segments
+                      if s.kind in ("worked", "call", "accepted", "counted-break")), timedelta())
         original = worked.total_seconds() / 60
         quantum = policy.get("round_to_minutes", settings["round_to_minutes"])
         duration = original
@@ -198,17 +178,48 @@ def build(activity, projects, settings, start, end, zone, accepted=(), caps=True
             step = quantum * 60 * 1000000
             units = (micros + step - 1) // step if policy["rounding"] == "up" else (2 * micros + step) // (2 * step)
             duration = units * quantum
-        midnight = datetime.combine(row.start.astimezone(zone).date() + timedelta(days=1), time(), zone).astimezone(timezone.utc)
-        limit = min(end, midnight, merged[index + 1].start if index + 1 < len(merged) else end)
-        duration = min(duration, (limit - row.start).total_seconds() / 60)
         row.rounding = duration - original
         if duration <= 0 or (duration < settings["min_block_minutes"] and not any(s.kind == "accepted" for s in row.segments)):
             row.filtered = True
             discarded += original
             continue
-        discarded += max(0, original - duration)
-        row.billed = duration
-        blocks.append(Block(row.start, row.start + timedelta(minutes=duration), p.destination_project, p.description, p.billable))
+        candidates.append((row, original, duration))
+
+    # Interleaved projects have overlapping evidence spans. Pack each connected
+    # group in first-seen order, retaining the real spans on the review rows.
+    groups = []
+    for candidate in candidates:
+        row = candidate[0]
+        if (groups and row.start < group_end
+                and row.start.astimezone(zone).date() == groups[-1][0][0].start.astimezone(zone).date()):
+            groups[-1].append(candidate)
+            group_end = max(group_end, row.end)
+        else:
+            groups.append([candidate])
+            group_end = row.end
+    blocks = []
+    for index, group in enumerate(groups):
+        first = group[0][0].start
+        midnight = datetime.combine(first.astimezone(zone).date() + timedelta(days=1), time(), zone).astimezone(timezone.utc)
+        limit = min(end, midnight, groups[index + 1][0][0].start if index + 1 < len(groups) else end)
+        # Reserve unrounded (or rounded-down) work before allowing rounding up.
+        reserved = sum(min(original, duration) for _, original, duration in group)
+        cursor = first
+        for row, original, desired in group:
+            reserved -= min(original, desired)
+            entry_start = max(row.start, cursor)
+            duration = min(desired, max(0, (limit - entry_start).total_seconds() / 60 - reserved))
+            row.rounding = duration - original
+            if duration <= 0 or (duration < settings["min_block_minutes"] and not any(s.kind == "accepted" for s in row.segments)):
+                row.filtered = True
+                discarded += original
+                continue
+            discarded += max(0, original - duration)
+            row.billed = duration
+            row.entry_start = entry_start
+            p = projects[row.project]
+            cursor = entry_start + timedelta(minutes=duration)
+            blocks.append(Block(entry_start, cursor, p.destination_project, p.description, p.billable))
     result = Result(blocks, unmatched, discarded, merged, raw)
     if caps:
         apply_caps(result, projects, zone)
@@ -234,7 +245,7 @@ def apply_caps(result, projects, zone, logged=(), existing=()):
             used[(block.project, month_key(a, zone))] += (b - a).total_seconds() / 60
             a = b
     output = []
-    rows = {r.start: r for r in result.reviews if r.billed > 0}
+    rows = {r.entry_start: r for r in result.reviews if r.billed > 0}
     for block in result.blocks:
         row = rows[block.start]
         cap = agreement(projects[row.project]).get("monthly_cap_hours")

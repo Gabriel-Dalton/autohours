@@ -12,7 +12,7 @@ use_web = false
 
 [blocks]
 # Group nearby slices into one entry. Excluded gaps are never billed.
-# Other projects and unmatched activity are barriers.
+# Bridge interruptions by other projects, unmatched windows and away time.
 merge_gap_minutes = 5
 # Discard blocks shorter than this many minutes after rounding.
 min_block_minutes = 10

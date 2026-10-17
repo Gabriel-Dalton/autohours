@@ -1,6 +1,7 @@
 from datetime import timedelta, timezone
 from zoneinfo import ZoneInfo
 import re
+import pytest
 
 from autohours.models import Activity, Project
 from autohours.pipeline import active_slices, build, classify
@@ -31,10 +32,11 @@ def test_merge_and_minimum(event, projects, settings, origin):
     assert result.discarded_minutes == 5
 
 
-def test_unmatched_and_other_projects_are_barriers(event, projects, settings, origin):
+def test_unmatched_and_other_projects_are_interruptions(event, projects, settings, origin):
     settings["min_block_minutes"] = 0
     result = run(event, projects, settings, origin, [event(0, 10, title="Acme"), event(10, 11, title="personal"), event(11, 21, title="Acme"), event(21, 22, title="course"), event(22, 32, title="Acme")])
-    assert [b.minutes for b in result.blocks] == [10, 10, 1, 10]
+    assert [b.minutes for b in result.blocks] == [30, 1]
+    assert result.blocks[0].end <= result.blocks[1].start
     assert sum(result.unmatched.values()) == 1
 
 
@@ -47,20 +49,53 @@ def test_rounding_is_on_duration_and_cannot_overlap(event, projects, settings, o
     assert run(event, projects, settings, origin, [event(1, 22, title="Acme")]).blocks == []
 
 
-def test_minute_conflict_no_reassignment(event, projects, settings, origin):
+def test_projects_share_minute_without_losing_or_reassigning_seconds(event, projects, settings, origin):
     settings.update(min_block_minutes=0, merge_gap_minutes=0)
     result = run(event, projects, settings, origin, [event(0, 0.4, title="Acme"), event(0.4, 1, title="course")])
-    assert len(result.blocks) == 1
-    assert result.blocks[0].project == "Learning"
-    assert result.blocks[0].minutes == 0.6
-    assert result.discarded_minutes == 0.4
+    assert [b.minutes for b in result.blocks] == [0.4, 0.6]
+    assert result.discarded_minutes == 0
 
 
-def test_unmatched_minute_wins_without_export(event, projects, settings, origin):
+def test_unmatched_seconds_do_not_discard_work_in_same_minute(event, projects, settings, origin):
     settings["min_block_minutes"] = 0
     result = run(event, projects, settings, origin, [event(0, 0.4, title="Acme"), event(0.4, 1, title="personal")])
-    assert not result.blocks
+    assert [b.minutes for b in result.blocks] == [0.4]
     assert sum(result.unmatched.values()) == 0.6
+
+
+@pytest.mark.parametrize("kind", ["unmatched", "other", "away", "missing"])
+@pytest.mark.parametrize("gap,expected", [(5, [12]), (5.01, [])])
+def test_interruptions_merge_only_through_limit(kind, gap, expected, event, projects, settings, origin):
+    windows = [event(0, 6, title="Acme"), event(6 + gap, 12 + gap, title="Acme")]
+    if kind != "missing":
+        windows.append(event(6, 6 + gap, title="course" if kind == "other" else "personal"))
+    afk = [event(0, 6, status="not-afk"), event(6 + gap, 12 + gap, status="not-afk")]
+    if kind != "missing":
+        afk.append(event(6, 6 + gap, status="afk" if kind == "away" else "not-afk"))
+    result = run(event, projects, settings, origin, windows, afk)
+    assert [b.minutes for b in result.blocks] == expected
+    if kind == "other" and expected:
+        assert result.discarded_minutes == gap
+
+
+@pytest.mark.parametrize("seed", [1729, 42, 73])
+def test_realistic_switches_preserve_work(switching_activity, projects, settings, origin, seed):
+    activity = switching_activity(seed=seed)
+    assert all(5 <= (w.end - w.start).total_seconds() <= 90 for w in activity.windows)
+    result = build(activity, projects, settings, origin, origin + timedelta(hours=1), timezone.utc)
+    assert len(result.blocks) == 2
+    for index, project in enumerate(projects):
+        expected = sum((w.end - w.start).total_seconds() / 60
+                       for w, afk in zip(activity.windows, activity.afk)
+                       if afk.data["status"] == "not-afk"
+                       and classify(projects, w.data["title"], w.data["app"]) == index)
+        actual = sum(b.minutes for b in result.blocks if b.project == project.destination_project)
+        assert actual == pytest.approx(expected)
+    assert result.discarded_minutes == pytest.approx(0)
+    assert all(a.end <= b.start for a, b in zip(result.blocks, result.blocks[1:]))
+    assert all(origin <= b.start < b.end <= origin + timedelta(hours=1) for b in result.blocks)
+    away = sum((e.end - e.start).total_seconds() / 60 for e in activity.afk if e.data["status"] == "afk")
+    assert sum(b.minutes for b in result.blocks) + sum(result.unmatched.values()) + away == pytest.approx(60)
 
 
 def test_duplicate_events_count_once_and_afk_conflict_fails_closed(event, projects, settings, origin):

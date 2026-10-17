@@ -1,5 +1,4 @@
 import argparse
-from collections import defaultdict
 from datetime import date, datetime, time, timedelta, timezone
 from importlib.resources import files
 from pathlib import Path
@@ -60,23 +59,6 @@ def show_unmatched(result):
         print(f"  {minutes:7.1f} min  {safe(app)} | {safe(title)}")
 
 
-def preview(result, zone):
-    grouped = defaultdict(list)
-    for block in result.blocks:
-        grouped[block.project].append(block)
-    if not grouped:
-        print("No matching blocks. Check your rules, minimum block length and AFK watcher.")
-    for name, blocks in grouped.items():
-        print(f"{safe(name)}: {sum(b.minutes for b in blocks):.1f} minutes")
-        for block in blocks:
-            a = block.start.astimezone(zone).isoformat(timespec="seconds")
-            b = block.end.astimezone(zone).isoformat(timespec="seconds")
-            print(f"  {a} to {b}  {block.minutes:.1f} min  {safe(block.description)}")
-    if result.discarded_minutes:
-        print(f"Filtered out: {result.discarded_minutes:.1f} minutes (minute conflicts, short blocks or rounding)")
-    show_unmatched(result)
-
-
 def parser():
     root = Parser(prog=APP_NAME, description="Review local activity before writing timesheet entries.")
     root.add_argument("--config", metavar="PATH")
@@ -97,9 +79,10 @@ def parser():
         sub.add_argument("dates", nargs="*", metavar="DATE")
         if command == "sync":
             sub.add_argument("--write", action="store_true", help="Actually write the reviewed blocks")
-        if command == "review":
+        if command in ("preview", "review"):
             sub.add_argument("--html", metavar="PATH")
             sub.add_argument("--titles", action="store_true", help="Include private window titles")
+            sub.add_argument("--verbose", action="store_true", help="Show all blocks and activity detail")
     rules = commands.add_parser("rules")
     tests = rules.add_subparsers(dest="rules_command", required=True, parser_class=Parser)
     test = tests.add_parser("test")
@@ -193,18 +176,15 @@ def run(args):
                        destination.logged(month_start, month_end), destination.existing(start, end))
     if args.command == "unmatched":
         show_unmatched(result)
-    elif args.command == "review":
-        print(text_review(result, config.projects, config.timezone, args.titles))
-        if has_caps:
-            print("Caps use local activity from the start of the month. Sync checks logged destination time too.")
-        if args.html:
-            Path(args.html).write_text(html_review(result, config.projects, config.timezone, args.titles), encoding="utf-8")
-            print(f"Review saved to {args.html}.")
     else:
-        preview(result, config.timezone)
-        for row in result.reviews:
-            if row.held:
-                print(f"Warning: {safe(config.projects[row.project].name)} monthly cap exceeded; held back by cap: {row.held:.1f} minutes.")
+        titles = getattr(args, "titles", False)
+        verbose = getattr(args, "verbose", False)
+        print(text_review(result, config.projects, config.timezone, titles, verbose))
+        if has_caps and args.command != "sync":
+            print("Caps use local activity from the start of the month. Sync checks logged destination time too.")
+        if getattr(args, "html", None):
+            Path(args.html).write_text(html_review(result, config.projects, config.timezone, titles, verbose), encoding="utf-8")
+            print(f"Review saved to {args.html}.")
         if args.command == "sync":
             created, skipped = sync(destination, result.blocks, start, end, args.write)
             if args.write:
@@ -215,6 +195,11 @@ def run(args):
 
 
 def main(argv=None):
+    # Windows consoles and redirected streams can use legacy code pages.
+    # Keep their encoding, replacing only characters they cannot represent.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="replace")
     try:
         return run(parser().parse_args(argv))
     except (UserError, OSError, UnicodeError) as exc:

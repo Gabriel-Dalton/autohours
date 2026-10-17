@@ -121,3 +121,48 @@ def test_cli_preview_dry_run_write_and_repeat(tmp_path, monkeypatch, capsys, eve
     assert main(args + ["sync", "2026-10-16", "--write"]) == 0
     assert "Created 0, skipped 1" in capsys.readouterr().out
     assert "private title" not in (tmp_path / "timesheet.csv").read_text()
+
+
+@pytest.mark.parametrize("options", [[], ["--verbose"], ["--titles"], ["--verbose", "--titles"]])
+def test_preview_and_review_share_output(tmp_path, monkeypatch, capsys, switching_activity, options):
+    from autohours.plugins import SOURCES
+
+    activity = switching_activity()
+    class Source:
+        def fetch(self, start, end):
+            return activity
+    monkeypatch.setitem(SOURCES, "activitywatch", lambda config: Source())
+    path = config_file(tmp_path)
+    path.write_text(path.read_text().replace("side-project", "course"), encoding="utf-8")
+    args = ["--config", str(path)]
+    assert main(args + ["preview", "2026-10-16"] + options) == 0
+    preview = capsys.readouterr().out
+    assert main(args + ["review", "2026-10-16"] + options) == 0
+    assert capsys.readouterr().out == preview
+    assert "Total billed:" in preview
+
+
+def test_cli_legacy_console_encoding_for_stdout_and_stderr(tmp_path, monkeypatch, event):
+    import io
+    import sys
+    from autohours.models import Activity
+    from autohours.plugins import SOURCES
+
+    title = "private \u2733 title"
+    class Source:
+        def fetch(self, start, end):
+            return Activity([event(0, 20, title=title, app="Terminal")], [event(0, 20, status="not-afk")])
+    monkeypatch.setitem(SOURCES, "activitywatch", lambda config: Source())
+    args = ["--config", str(config_file(tmp_path))]
+    output, errors = io.BytesIO(), io.BytesIO()
+    stdout = io.TextIOWrapper(output, encoding="cp1252", errors="strict")
+    stderr = io.TextIOWrapper(errors, encoding="cp1252", errors="strict")
+    monkeypatch.setattr(sys, "stdout", stdout)
+    monkeypatch.setattr(sys, "stderr", stderr)
+    assert main(args + ["unmatched", "2026-10-16"]) == 0
+    assert main(["bad-command-\u2733"]) == 1
+    stdout.flush()
+    stderr.flush()
+    assert "private ? title" in output.getvalue().decode("cp1252")
+    assert "bad-command-?" in errors.getvalue().decode("cp1252")
+    assert stdout.errors == stderr.errors == "replace"

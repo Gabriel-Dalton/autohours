@@ -137,3 +137,80 @@ def test_zero_cap_holds_everything(event, projects, settings, origin):
     result = build(gap_activity(event), projects, settings, origin, origin + timedelta(hours=1), timezone.utc)
     assert result.blocks == []
     assert result.reviews[0].held == 27
+
+
+def test_another_projects_away_call_is_not_counted_as_break(event, projects, settings, origin):
+    projects[0].agreement = {"count_breaks_up_to_minutes": 5}
+    projects[1].agreement = {"count_calls_when_away": True}
+    settings["min_block_minutes"] = 0
+    activity = Activity([event(0, 10, title="Acme"), event(10, 13, title="course", app="Zoom"),
+                         event(13, 23, title="Acme")],
+                        [event(0, 10, status="not-afk"), event(10, 13, status="afk"),
+                         event(13, 23, status="not-afk")])
+    result = build(activity, projects, settings, origin, origin + timedelta(hours=1), timezone.utc)
+    assert [b.minutes for b in result.blocks] == [20, 3]
+    assert not any(s.kind == "counted-break" for r in result.reviews for s in r.segments)
+
+
+def test_interleaved_caps_use_compressed_entry_start(event, projects, settings, origin):
+    projects[1].agreement = {"monthly_cap_hours": .2}
+    activity = Activity([event(0, 10, title="Acme"), event(10, 15, title="course"),
+                         event(15, 20, title="Acme"), event(20, 30, title="course")],
+                        [event(0, 30, status="not-afk")])
+    result = build(activity, projects, settings, origin, origin + timedelta(minutes=30), timezone.utc)
+    assert [b.minutes for b in result.blocks] == [15, 12]
+    assert result.reviews[1].entry_start > result.reviews[1].start
+    assert result.reviews[1].held == 3
+    assert "held back by cap: 3.0" in text_review(result, projects, timezone.utc)
+
+
+def test_interleaved_rounding_reserves_other_projects_work(event, projects, settings, origin):
+    projects[0].agreement = {"round_to_minutes": 60, "rounding": "up"}
+    activity = Activity([event(0, 10, title="Acme"), event(10, 15, title="course"),
+                         event(15, 20, title="Acme"), event(20, 30, title="course")],
+                        [event(0, 30, status="not-afk")])
+    result = build(activity, projects, settings, origin, origin + timedelta(minutes=30), timezone.utc)
+    assert [b.minutes for b in result.blocks] == [15, 15]
+    assert result.blocks[0].end == result.blocks[1].start
+    assert result.blocks[-1].end == origin + timedelta(minutes=30)
+
+
+def test_busy_day_review_is_compact_and_verbose_preserves_evidence(switching_activity, projects, settings, origin):
+    activity = switching_activity(hours=8)
+    result = build(activity, projects, settings, origin, origin + timedelta(hours=8), timezone.utc)
+    compact = text_review(result, projects, timezone.utc)
+    verbose = text_review(result, projects, timezone.utc, verbose=True)
+    assert len(compact.splitlines()) < 30
+    assert len(verbose.splitlines()) > len(activity.windows)
+    assert "Private chat" not in compact
+    html = html_review(result, projects, timezone.utc)
+    assert len(html.encode("utf-8")) < 150_000
+    assert html.count('<th scope="row">') == len(result.blocks) + len(projects)
+    assert "Private chat" not in html
+    assert "Private chat" in html_review(result, projects, timezone.utc, titles=True)
+
+
+def test_adjacent_html_segments_compact_across_private_titles(event, projects, settings, origin):
+    activity = Activity([event(i / 60, (i + 1) / 60, title=f"Acme private {i}") for i in range(3600)],
+                        [event(0, 60, status="not-afk")])
+    result = build(activity, projects, settings, origin, origin + timedelta(hours=1), timezone.utc)
+    html = html_review(result, projects, timezone.utc)
+    assert html.count('class="segment worked"') == 1
+    assert len(html.encode("utf-8")) < 8_000
+    assert "private" not in html
+
+
+def test_filtered_blocks_and_unmatched_slices_are_summarized(event, projects, settings, origin):
+    windows = [event(i * 10, i * 10 + 1, title="Acme") for i in range(12)]
+    windows += [event(i * 10 + 1, i * 10 + 3, title=f"private {i}", app=f"Chat {i}") for i in range(12)]
+    result = build(Activity(windows, [event(0, 120, status="not-afk")]),
+                   projects, settings, origin, origin + timedelta(hours=2), timezone.utc)
+    text = text_review(result, projects, timezone.utc)
+    assert "worked 1.0" not in text
+    assert "Acme Corp: filtered out 12.0 min" in text
+    assert text.count("min  Chat") == 10
+    assert "short block filtered out" in text_review(result, projects, timezone.utc, verbose=True)
+    html = html_review(result, projects, timezone.utc)
+    assert "short block filtered out" not in html
+    assert "Acme Corp: filtered out 12.0 min" in html
+    assert "short block filtered out" in html_review(result, projects, timezone.utc, verbose=True)
