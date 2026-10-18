@@ -411,7 +411,10 @@ def test_launch_and_error_logs_never_expose_token(server_factory, monkeypatch, c
 
 def test_static_files_headers_and_traversal(server_factory):
     server, _ = server_factory()
-    for path, mime in (("/", "text/html"), ("/app.js", "text/javascript"), ("/app.css", "text/css")):
+    for path, mime in (("/", "text/html"), ("/app.js", "text/javascript"), ("/app.css", "text/css"),
+                       ("/icons.svg", "image/svg+xml"),
+                       ("/fonts/IBMPlexSans-Regular.woff2", "font/woff2"),
+                       ("/fonts/IBMPlexSans-SemiBold.woff2", "font/woff2")):
         status, body, headers = http(server, path, token=False)
         assert status == 200 and body
         assert headers.get_content_type() == mime
@@ -419,8 +422,12 @@ def test_static_files_headers_and_traversal(server_factory):
         assert headers["X-Content-Type-Options"] == "nosniff"
         assert headers["Cache-Control"] == "no-store"
         assert headers["Referrer-Policy"] == "no-referrer"
-    for path in ("/../webapp.py", "/%2e%2e/webapp.py", "/%252e%252e/webapp.py", "/web/%2e%2e/app.js", "/..%5cwebapp.py"):
+    for path in ("/../webapp.py", "/%2e%2e/webapp.py", "/%252e%252e/webapp.py", "/web/%2e%2e/app.js", "/..%5cwebapp.py",
+                 "/fonts/../app.js", "/fonts/%2e%2e/app.js", "/fonts/%252e%252e/app.js",
+                 "/fonts/..%5capp.js", "/fonts/%2e%2e%2f%2e%2e%2fwebapp.py"):
         assert http(server, path)[0] == 400
+    for path in ("/fonts/unknown.woff2", "/fonts/OFL.txt", "/fonts/", "/icons-LICENSE.txt"):
+        assert http(server, path)[0] == 404
     assert http(server, "/credentials")[0] == 404
     assert http(server, "/", headers={"Origin": "https://foreign.example"})[0] == 403
     assert http(server, "/api/state", headers={"Origin": server.origin})[0] == 200

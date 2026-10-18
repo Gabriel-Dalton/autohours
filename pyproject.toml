@@ -19,7 +19,7 @@ build = ["pyinstaller>=6,<7"]
 autohours = "autohours.entry:main"
 
 [tool.setuptools.package-data]
-autohours = ["starter.toml", "web/*"]
+autohours = ["starter.toml", "web/*", "web/fonts/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

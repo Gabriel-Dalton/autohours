@@ -12,19 +12,21 @@
   <a class="skip" href="#content">Skip to content</a>
   <header class="topbar">
     <a class="brand" href="/" id="brand" aria-label="autohours home">
-      <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><rect width="32" height="32" rx="9" fill="currentColor"/><circle cx="16" cy="16" r="10" fill="none" stroke="white" stroke-width="2"/><path d="M16 9v7l5 3" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+      <svg class="icon icon-20" aria-hidden="true" focusable="false"><use href="/icons.svg#time"></use></svg>
       <span>autohours</span>
     </a>
-    <span id="progress-label" class="muted"></span>
-    <button id="quit" class="text-button" type="button">Close app</button>
+    <button id="quit" class="header-action" type="button" aria-label="Close app">Close app<svg class="icon icon-20" aria-hidden="true" focusable="false"><use href="/icons.svg#power"></use></svg></button>
   </header>
-  <progress id="progress" value="0" max="7" aria-label="Setup progress"></progress>
+  <nav id="setup-progress" class="setup-progress" aria-label="Setup progress" hidden>
+    <p id="progress-label" aria-live="polite"></p>
+    <ol id="progress"></ol>
+  </nav>
   <main id="content" tabindex="-1">
     <div id="toast" role="status" aria-live="polite" hidden></div>
     <div id="page"><h1>Opening your timesheets...</h1><div class="skeleton" aria-label="Loading"></div></div>
     <footer id="footer"></footer>
   </main>
-  <p class="privacy-footer">Private by design. Your activity stays on this computer.</p>
+  <div class="privacy-container"><p class="privacy-footer"><svg class="icon" aria-hidden="true" focusable="false"><use href="/icons.svg#information--filled"></use></svg>Private by design. Your activity stays on this computer.</p></div>
   <noscript>Enable JavaScript in this local window to use autohours.</noscript>
 </body>
 </html>

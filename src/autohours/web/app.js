@@ -10,6 +10,36 @@ let state, step = "welcome", editing = false, generation = 0, awTimer;
 let projects = [], items = [], remote = [], selected = 0, activitySearch = "";
 let projectQueue = Promise.resolve(), projectFailure = null, projectRevision = 0;
 let primary, keyConnected = false, singleWorkspace = false;
+// Explicit local references keep the sprite contract auditable without a build step.
+const iconPaths = {
+  "add": "/icons.svg#add",
+  "arrow--left": "/icons.svg#arrow--left",
+  "arrow--right": "/icons.svg#arrow--right",
+  "arrow--up": "/icons.svg#arrow--up",
+  "calendar": "/icons.svg#calendar",
+  "checkmark": "/icons.svg#checkmark",
+  "checkmark--filled": "/icons.svg#checkmark--filled",
+  "checkmark--outline": "/icons.svg#checkmark--outline",
+  "chevron--down": "/icons.svg#chevron--down",
+  "circle-dash": "/icons.svg#circle-dash",
+  "close": "/icons.svg#close",
+  "document": "/icons.svg#document",
+  "edit": "/icons.svg#edit",
+  "error--filled": "/icons.svg#error--filled",
+  "folder": "/icons.svg#folder",
+  "in-progress": "/icons.svg#in-progress",
+  "incomplete": "/icons.svg#incomplete",
+  "information--filled": "/icons.svg#information--filled",
+  "launch": "/icons.svg#launch",
+  "overflow-menu--vertical": "/icons.svg#overflow-menu--vertical",
+  "renew": "/icons.svg#renew",
+  "search": "/icons.svg#search",
+  "table": "/icons.svg#table",
+  "time": "/icons.svg#time",
+  "trash-can": "/icons.svg#trash-can",
+  "warning--alt--filled": "/icons.svg#warning--alt--filled",
+  "warning--filled": "/icons.svg#warning--filled"
+};
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -20,12 +50,43 @@ function el(tag, attrs = {}, ...children) {
     else if (value !== undefined && value !== null && value !== false) node.setAttribute(key, value === true ? "" : value);
   }
   for (const child of children.flat(Infinity)) if (child !== null && child !== undefined) node.append(child.nodeType ? child : document.createTextNode(String(child)));
+  if (tag === "summary") node.append(icon("chevron--down"));
+  if (tag === "label" && attrs.class === "field") {
+    const select = node.querySelector("select");
+    if (select) { const wrapper = el("div", {class: "field-control"}); select.replaceWith(wrapper); wrapper.append(select); }
+  }
   return node;
 }
-function button(label, action, className = "") {
-  const b = el("button", {type: "button", class: className}, label);
+function icon(name, size = 16) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  for (const [key, value] of Object.entries({class: `icon icon-${size}`, "aria-hidden": "true", focusable: "false"})) svg.setAttribute(key, value);
+  const use = document.createElementNS(svg.namespaceURI, "use");
+  if (!Object.hasOwn(iconPaths, name)) throw new Error("Unknown local icon: " + name);
+  use.setAttribute("href", iconPaths[name]);
+  svg.append(use);
+  return svg;
+}
+function buttonLabel(control, label, name) {
+  control.replaceChildren(el("span", {class: "button-label"}, label));
+  if (name) control.append(icon(name));
+}
+function button(label, action, className = "", name = null) {
+  const b = el("button", {type: "button", class: className || "tertiary"});
+  name ||= label === "Add" ? "add" : label === "Back" ? "arrow--left" : className === "primary" ? "arrow--right" : null;
+  buttonLabel(b, label, name);
   if (action) b.addEventListener("click", () => work(b, action));
   return b;
+}
+function notification(kind, title, subtitle = "", dismiss = false) {
+  const symbols = {success: "checkmark--filled", info: "information--filled", warning: "warning--filled", error: "error--filled"};
+  const node = el("div", {class: `notification ${kind}`, role: kind === "error" ? "alert" : "status"},
+    icon(symbols[kind], 20), el("div", {class: "notification-content"}, el("strong", {}, title), subtitle ? " " + subtitle : null));
+  if (dismiss) {
+    const close = button("", () => { node.remove(); }, "icon-button", "close");
+    close.setAttribute("aria-label", "Close notification");
+    node.append(close);
+  }
+  return node;
 }
 async function api(path, data, method = data === undefined ? "GET" : "POST") {
   const response = await fetch("/api/" + path, {
@@ -37,9 +98,9 @@ async function api(path, data, method = data === undefined ? "GET" : "POST") {
   return result;
 }
 function notice(message, failure = false) {
-  toast.textContent = message;
+  toast.replaceChildren(...(message ? [notification(failure ? "error" : "info", failure ? "Could not complete the action" : "Update", message, true)] : []));
   toast.hidden = !message;
-  toast.classList.toggle("failure", failure);
+  if (failure && message) toast.scrollIntoView({block: "nearest"});
 }
 function clearErrors() {
   page.querySelectorAll("[aria-invalid]").forEach(clearFieldError);
@@ -49,6 +110,7 @@ function clearErrors() {
 function clearFieldError(field) {
   if (!field) return;
   document.getElementById("error-" + field.id)?.remove();
+  field.closest(".field-control")?.querySelector(".field-error-icon")?.remove();
   field.removeAttribute("aria-invalid");
   const described = (field.getAttribute("aria-describedby") || "").split(" ").filter(id => id && id !== "error-" + field.id);
   if (described.length) field.setAttribute("aria-describedby", described.join(" ")); else field.removeAttribute("aria-describedby");
@@ -75,10 +137,15 @@ function showError(error) {
     const id = "error-" + error.field;
     document.getElementById(id)?.remove();
     const message = el("p", {id, class: "error", role: "alert"}, error.message);
-    field.after(message);
+    const wrapper = field.closest(".field-control");
+    if (wrapper) {
+      wrapper.querySelector(".field-error-icon")?.remove();
+      const symbol = icon("error--filled"); symbol.classList.add("field-error-icon"); wrapper.append(symbol);
+      wrapper.after(message);
+    } else field.after(message);
     field.setAttribute("aria-invalid", "true");
     field.setAttribute("aria-describedby", [...new Set([...(field.getAttribute("aria-describedby") || "").split(" ").filter(Boolean), id])].join(" "));
-    const target = error.field.startsWith("project-") ? document.querySelector("#activity-list input:not(:disabled)") || field :
+    const target = /^project-\d+$/.test(error.field) ? document.querySelector("#activity-list input:not(:disabled)") || field :
       field.matches("input, select, button") ? field : field.querySelector("input, button") || field;
     target.focus();
   } else notice(error.message || "Could not connect. Reopen autohours and try again.", true);
@@ -94,12 +161,30 @@ async function work(control, action) {
 function field(label, id, value = "", type = "text", attrs = {}) {
   const input = el("input", {id, type, ...attrs});
   input.value = value;
-  return el("label", {class: "field", for: id}, el("span", {}, label), input);
+  const control = el("div", {class: "field-control"}, input);
+  if (type === "search") {
+    control.classList.add("search-control"); control.prepend(icon("search"));
+    const clear = button("", () => { input.value = ""; input.dispatchEvent(new Event("input", {bubbles: true})); input.focus(); }, "icon-button", "close");
+    clear.setAttribute("aria-label", "Clear " + label.toLowerCase());
+    clear.hidden = !input.value;
+    input.addEventListener("input", () => { clear.hidden = !input.value; });
+    control.append(clear);
+  }
+  return el("div", {class: "field"}, el("label", {for: id}, label), control);
 }
 function toggle(label, id, checked = false, change = () => {}) {
   const input = el("input", {id, type: "checkbox", role: "switch", onchange: () => change(input.checked)});
   input.checked = checked;
-  return el("label", {class: "toggle", for: id}, input, el("span", {}, label));
+  const drawing = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  drawing.setAttribute("viewBox", "0 0 48 24"); drawing.setAttribute("focusable", "false");
+  for (const [tag, attrs] of [["rect", {width: 48, height: 24, rx: 12}], ["circle", {cx: 12, cy: 12, r: 9}]]) {
+    const shape = document.createElementNS(drawing.namespaceURI, tag);
+    for (const [key, val] of Object.entries(attrs)) shape.setAttribute(key, val);
+    drawing.append(shape);
+  }
+  return el("label", {class: "toggle", for: id}, el("span", {class: "toggle-label"}, label),
+    el("span", {class: "toggle-control"}, input, el("span", {class: "toggle-track", "aria-hidden": "true"}, drawing),
+      el("span", {class: "toggle-on", "aria-hidden": "true"}, "On"), el("span", {class: "toggle-off", "aria-hidden": "true"}, "Off")));
 }
 function choices(title, id, options, value, change = () => {}, segmented = false, help = "") {
   const group = el("fieldset", {id, class: segmented ? "segments" : "choices", tabindex: "-1"}, el("legend", {}, title));
@@ -107,20 +192,20 @@ function choices(title, id, options, value, change = () => {}, segmented = false
     group.append(el("small", {id: id + "-help", class: "question-help"}, help));
     group.setAttribute("aria-describedby", id + "-help");
   }
-  options.forEach(([key, label, detail, icon]) => {
+  options.forEach(([key, label, detail, symbol]) => {
     const input = el("input", {type: "radio", name: id, value: key, onchange: () => change(key)});
     input.checked = String(value) === String(key);
     group.append(el("label", {class: segmented ? "segment" : "choice"}, input,
-      !segmented && icon ? el("span", {class: "choice-icon", "aria-hidden": "true"}, icon) : null,
+      !segmented && symbol ? icon(symbol, 20) : null,
       segmented ? label : el("span", {}, el("strong", {}, label), el("small", {}, detail || "")),
-      !segmented ? el("span", {class: "tick", "aria-hidden": "true"}, "✓") : null));
+      !segmented ? el("span", {class: "tick", "aria-hidden": "true"}, icon("checkmark--filled")) : null));
   });
   return group;
 }
 function value(id) { return document.getElementById(id)?.value || ""; }
 function radio(id) { return document.querySelector(`#${id} input:checked`)?.value || ""; }
 function card(title, ...children) { return el("section", {class: "card"}, title ? el("h2", {}, title) : null, children); }
-function link(label, url) { return el("a", {class: "button-link", href: url, target: "_blank", rel: "noreferrer noopener"}, label); }
+function link(label, url) { return el("a", {class: "button-link", href: url, target: "_blank", rel: "noreferrer noopener"}, label, icon("launch")); }
 function foot(label, action, back) {
   footer.replaceChildren();
   if (back) footer.append(button("Back", back, "text-button"));
@@ -135,10 +220,13 @@ function screen(name, title, subtitle) {
   footer.replaceChildren(); primary = null;
   const steps = ["welcome", "activitywatch", "destination", ...(state?.destination.type === "clockify" ? ["connect", ...(!singleWorkspace ? ["workspace"] : [])] : []), "projects", "billing", "finish"];
   const index = steps.indexOf(name);
-  document.querySelector("#progress-label").textContent = name === "home" ? "Your workspace" : editing ? "Projects and billing" : `Step ${index + 1} of ${steps.length}`;
-  document.querySelector("#progress").max = steps.length;
-  document.querySelector("#progress").value = index + 1;
-  document.querySelector("#progress").hidden = name === "home";
+  const labels = {welcome: "Welcome", activitywatch: "ActivityWatch", destination: "Destination", connect: "Connect", workspace: "Workspace", projects: "Projects", billing: "Billing", finish: "Finish"};
+  document.querySelector("#setup-progress").hidden = name === "home" || editing;
+  document.querySelector("#progress-label").textContent = `Step ${index + 1} of ${steps.length}`;
+  document.querySelector("#progress").replaceChildren(...steps.map((s, i) => el("li", {
+    class: i < index ? "complete" : i === index ? "current" : "future", "aria-current": i === index ? "step" : null,
+    "aria-label": `${labels[s]}: ${i < index ? "complete" : i === index ? "current" : "not started"}`
+  }, icon(i < index ? "checkmark--outline" : i === index ? "incomplete" : "circle-dash"), el("span", {}, labels[s]))));
   page.querySelector("h1").focus({preventScroll: true});
   window.scrollTo(0, 0);
 }
@@ -146,10 +234,10 @@ async function refresh() { state = await api("state"); }
 async function cancelEdit() { await projectQueue.catch(() => {}); await api("reset", {}); await home(); }
 
 function welcome() {
-  screen("welcome", "Turn your computer activity into timesheets, automatically.", "A little setup now. More time for your work later.");
+  screen("welcome", "Set up autohours", "autohours turns what you work on into timesheets. It leaves out time you were away.");
   page.append(card(null, el("ul", {class: "benefits"},
-    el("li", {}, "Tracks what you work on"), el("li", {}, "Leaves out time you were away"),
-    el("li", {}, "Writes to Clockify or a spreadsheet"))));
+    el("li", {}, icon("checkmark"), "Tracks what you work on"), el("li", {}, icon("checkmark"), "Leaves out time you were away"),
+    el("li", {}, icon("checkmark"), "Writes to Clockify or a spreadsheet"))));
   page.append(el("p", {}, "Window titles never leave your computer."));
   let friendly;
   try { friendly = new Intl.DateTimeFormat(undefined, {timeZone: state.timezone, timeZoneName: "longGeneric"}).formatToParts(new Date()).find(p => p.type === "timeZoneName").value; }
@@ -170,7 +258,7 @@ function welcome() {
 }
 
 function activityWatch() {
-  screen("activitywatch", "Meet ActivityWatch", "A free app that records which apps you use and when you step away.");
+  screen("activitywatch", "Connect ActivityWatch", "ActivityWatch records which apps you use and when you step away.");
   const status = card(null, el("p", {role: "status", "aria-live": "polite"}, "Checking ActivityWatch..."));
   const download = link("Download ActivityWatch", "https://activitywatch.net/downloads/"); download.hidden = true;
   const hostBox = el("div", {hidden: true});
@@ -187,8 +275,8 @@ function activityWatch() {
       const result = await api("activitywatch/check", {hostname: host.value || state.activitywatch.hostname, use_web: web.querySelector("input").checked});
       if (generation !== current) return;
       running = result.running;
-      status.classList.toggle("success", running);
-      status.replaceChildren(el("p", {role: "status", "aria-live": "polite"}, (running ? "✓ " : "") + result.message));
+      status.replaceChildren(notification(running ? "success" : "info", running ? "ActivityWatch is running" : "Waiting for ActivityWatch",
+        running ? "Recording apps and time away on this computer." : result.message));
       if (!running) status.append(el("small", {class: "busy"}, "Checking..."));
       download.hidden = running || result.hosts.length > 0;
       const previous = host.value;
@@ -214,8 +302,8 @@ function destination() {
   const picked = state.destination.type;
   path.hidden = picked !== "csv";
   page.append(choices("Destination", "destination", [
-    ["clockify", "Clockify", "Time tracking app, rates and invoices", "◷"],
-    ["csv", "A spreadsheet file", "Opens in Excel, Numbers or Google Sheets", "▤"]
+    ["clockify", "Clockify", "Time tracking app, rates and invoices", "time"],
+    ["csv", "Spreadsheet", "Opens in Excel, Numbers or Google Sheets", "table"]
   ], picked, v => { path.hidden = v !== "csv"; }), path);
   foot("Continue", async () => {
     const type = radio("destination");
@@ -243,9 +331,9 @@ function connect() {
     const result = useSaved && savedConnection ? savedConnection : await api("clockify/key", {key});
     keyConnected = true; singleWorkspace = result.single_workspace;
     state.currency = result.currency; state.workspace_name = result.workspace_name;
-    status.replaceChildren(card(null, el("p", {class: "success"}, `✓ Connected as ${result.name}`)));
+    status.replaceChildren(notification("success", "Clockify connected", `Connected as ${result.name}`));
     instructions.hidden = saved.hidden = true;
-    primary.textContent = "Continue";
+    buttonLabel(primary, "Continue", "arrow--right");
   }
   const savedButton = button("Use saved key", verify);
   saved.append(savedButton, button("Use a different key", () => {
@@ -282,11 +370,11 @@ async function workspace() {
   try { result = await api("clockify/workspaces"); }
   catch (error) {
     if (generation !== current) return;
-    loading.replaceWith(el("p", {class: "error"}, error.message));
+    loading.remove(); showError(error);
     foot("Try again", workspace, connect); return;
   }
   if (current !== generation) return;
-  loading.replaceWith(choices("Workspace", "workspace", result.workspaces.map(w => [w.id, w.name, "Your Clockify projects", "◷"]), state.destination.workspace || ""));
+  loading.replaceWith(choices("Workspace", "workspace", result.workspaces.map(w => [w.id, w.name, "Your Clockify projects", "time"]), state.destination.workspace || ""));
   foot("Continue", async () => {
     const result = await api("clockify/workspace", {workspace: radio("workspace")});
     state.currency = result.currency; state.workspace_name = result.workspace_name;
@@ -296,7 +384,11 @@ async function workspace() {
 
 function updateCoverage(percent) {
   const bar = document.querySelector("#coverage");
-  if (bar) { bar.value = percent; document.querySelector("#coverage-label").textContent = `${Math.round(percent)}% of your last 7 days is assigned`; }
+  if (bar) {
+    bar.value = percent;
+    document.querySelector("#coverage-percent").textContent = `${Math.round(percent)}%`;
+    document.querySelector("#coverage-label").textContent = `${Math.round(percent)}% of your last 7 days`;
+  }
 }
 function saveProjects(validate = false) {
   const revision = ++projectRevision;
@@ -318,10 +410,11 @@ function activityRows() {
   for (const item of items.filter(item => item.name.toLowerCase().includes(activitySearch.toLowerCase()))) {
     const input = el("input", {id: `activity-${item.id}`, type: "checkbox", "aria-label": `Assign ${item.name} to ${project?.name || "a project"}`});
     input.checked = !!project?.items.includes(item.id); input.disabled = !project;
-    const badges = el("span", {});
-    for (const other of projects.filter(p => p !== project && p.items.includes(item.id))) badges.append(el("span", {class: "assigned"}, other.name));
-    const label = el("label", {class: "activity-row"}, input,
-      el("span", {class: "name"}, item.name, el("small", {}, item.kind), badges),
+    const badges = el("span", {class: "assigned-projects"});
+    const updateBadges = () => badges.replaceChildren(...projects.filter(p => p.items.includes(item.id)).map(p => el("span", {class: "assigned"}, p.name)));
+    updateBadges();
+    const label = el("label", {class: "activity-row"}, el("span", {class: "checkbox"}, input, icon("checkmark")),
+      el("span", {class: "name"}, item.name, el("small", {}, item.kind)), badges,
       el("span", {class: "hours"}, duration(item.hours * 60)));
     input.addEventListener("change", async () => {
       const checked = input.checked;
@@ -331,51 +424,78 @@ function activityRows() {
       // Keep this native checkbox focusable while the save is in flight.
       await saveProjects();
       // Keep the clicked input in place so the first click and focus never scroll.
-      badges.replaceChildren();
-      renderPills();
+      updateBadges();
     });
     list.append(label);
   }
   if (!list.children.length) list.append(el("p", {class: "muted"}, "No activity matches your search."));
   if (focused) document.getElementById(focused)?.focus({preventScroll: true});
 }
-function renderPills(menuOpen = !!document.querySelector("#project-menu") && !document.querySelector("#project-menu").hidden) {
-  const pills = document.querySelector("#project-pills"); if (!pills) return;
-  pills.replaceChildren();
+function closeProjectMenu(focus = false) {
+  const menu = document.querySelector("#project-menu");
+  if (menu) menu.hidden = true;
+  const more = document.querySelector("#project-more");
+  more?.setAttribute("aria-expanded", "false");
+  if (focus) more?.focus();
+}
+function renderTabs() {
+  const tabs = document.querySelector("#project-tabs"); if (!tabs) return;
+  const list = el("div", {class: "tab-list", role: "tablist", "aria-label": "Choose a project"});
+  tabs.replaceChildren(list);
   projects.forEach((project, i) => {
-    const b = button("", () => { selected = i; renderProject(); document.getElementById(`pill-${i}`)?.focus({preventScroll: true}); });
-    b.id = `pill-${i}`;
-    b.className = "pill"; b.setAttribute("aria-pressed", String(i === selected));
-    b.append(el("span", {class: `dot dot-${i % 4}`, "aria-hidden": "true"}), project.name);
-    const pill = el("div", {class: "project-pill"}, b);
-    if (i === selected) {
-      const more = button("...", () => {
-        const menu = document.querySelector("#project-menu");
-        menu.hidden = !menu.hidden;
-        more.setAttribute("aria-expanded", String(!menu.hidden));
-        if (!menu.hidden) menu.querySelector("input").focus();
-      }, "project-more");
-      more.setAttribute("aria-label", `More options for ${project.name}`);
-      more.setAttribute("aria-controls", "project-menu"); more.setAttribute("aria-expanded", String(menuOpen));
-      pill.append(more);
-    }
-    pills.append(pill);
+    const activate = () => { selected = i; renderProject(); document.getElementById(`project-tab-${i}`)?.focus({preventScroll: true}); };
+    const tab = el("button", {type: "button", id: `project-tab-${i}`, class: "project-tab", role: "tab",
+      "aria-selected": String(i === selected), "aria-controls": "project-panel", tabindex: i === selected ? "0" : "-1", onclick: activate}, project.name);
+    tab.addEventListener("keydown", e => {
+      const next = e.key === "ArrowRight" ? (i + 1) % projects.length : e.key === "ArrowLeft" ? (i + projects.length - 1) % projects.length : e.key === "Home" ? 0 : e.key === "End" ? projects.length - 1 : null;
+      if (next !== null) { e.preventDefault(); selected = next; renderProject(); document.getElementById(`project-tab-${next}`).focus(); }
+    });
+    list.append(tab);
   });
+  if (!projects.length) return;
+  const project = projects[selected];
+  const more = el("button", {type: "button", id: "project-more", class: "icon-button", "aria-label": `More options for ${project.name}`,
+    "aria-controls": "project-menu", "aria-haspopup": "menu", "aria-expanded": "false"}, icon("overflow-menu--vertical"));
+  const menu = el("div", {id: "project-menu", class: "project-actions", role: "menu", "aria-label": "Project actions", hidden: true});
+  const edit = button("Edit details", () => { closeProjectMenu(); document.querySelector("#project-edit").hidden = false; document.querySelector("#rename").focus(); }, "menu-item", "edit");
+  const move = button("Move up", async () => {
+    closeProjectMenu();
+    if (selected > 0) { [projects[selected - 1], projects[selected]] = [projects[selected], projects[selected - 1]]; selected--; await saveProjects(); renderProject(); document.querySelector("#project-more").focus(); }
+  }, "menu-item", "arrow--up");
+  move.disabled = selected === 0;
+  const remove = button("Remove project", async () => {
+    closeProjectMenu(); projects.splice(selected, 1); selected = Math.max(0, selected - 1); await saveProjects(); renderProject();
+    (document.querySelector("#project-more") || document.querySelector("#project-name")).focus();
+  }, "menu-item danger", "trash-can");
+  for (const item of [edit, move, remove]) { item.setAttribute("role", "menuitem"); item.tabIndex = -1; menu.append(item); }
+  const open = () => { menu.hidden = false; more.setAttribute("aria-expanded", "true"); edit.focus(); };
+  more.addEventListener("click", () => { if (menu.hidden) open(); else closeProjectMenu(true); });
+  more.addEventListener("keydown", e => { if (e.key === "ArrowDown") { e.preventDefault(); open(); } });
+  menu.addEventListener("keydown", e => {
+    const controls = [...menu.querySelectorAll("button:not(:disabled)")];
+    const index = controls.indexOf(document.activeElement);
+    if (["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) {
+      e.preventDefault(); controls[e.key === "Home" ? 0 : e.key === "End" ? controls.length - 1 : (index + (e.key === "ArrowDown" ? 1 : controls.length - 1)) % controls.length].focus();
+    } else if (e.key === "Escape") { e.preventDefault(); closeProjectMenu(true); }
+    else if (e.key === "Tab") closeProjectMenu(true);
+  });
+  tabs.append(more, menu);
 }
 function renderProject() {
-  renderPills(false); activityRows();
+  renderTabs(); activityRows();
+  const panel = document.querySelector("#project-panel");
+  if (projects.length) { panel?.setAttribute("aria-labelledby", `project-tab-${selected}`); panel?.removeAttribute("aria-label"); }
+  else { panel?.removeAttribute("aria-labelledby"); panel?.setAttribute("aria-label", "Project activity"); }
   const details = document.querySelector("#project-details"); details.replaceChildren();
   const project = projects[selected]; if (!project) return;
   details.id = "project-details";
   const validation = el("div", {id: `project-${selected}`, tabindex: "-1"});
-  const menu = el("div", {id: "project-menu", class: "project-actions", hidden: true});
+  const menu = el("div", {id: "project-edit", class: "project-edit", hidden: true});
   menu.append(field("Project name", "rename", project.name), field("Timesheet description", "description", project.description));
   menu.append(button("Save details", async () => {
     project.name = value("rename"); project.description = value("description"); await saveProjects();
-    if (!projectFailure) renderProject();
-  }), button("Move up", async () => {
-    if (selected > 0) { [projects[selected - 1], projects[selected]] = [projects[selected], projects[selected - 1]]; selected--; await saveProjects(); renderProject(); }
-  }, "text-button"), button("Remove project", async () => { projects.splice(selected, 1); selected = Math.max(0, selected - 1); await saveProjects(); renderProject(); }, "text-button"));
+    if (!projectFailure) { renderProject(); document.querySelector("#project-more").focus(); }
+  }), button("Cancel", () => { menu.hidden = true; document.querySelector("#project-more").focus(); }, "text-button"));
   validation.append(menu);
   if (state.destination.type === "clockify") {
     const select = el("select", {id: "project-target"}, el("option", {value: ""}, "Create it in Clockify"), ...remote.map(p => el("option", {value: p.id}, p.name)));
@@ -389,7 +509,7 @@ function renderProject() {
 
 async function projectsScreen() {
   screen("projects", "What do you work on?", "Add a client or project, then pick the activity that belongs to it.");
-  if (state.workspace_name) page.append(el("small", {}, `Using ${state.workspace_name} in Clockify.`));
+  if (state.workspace_name) page.append(el("small", {class: "workspace-note"}, `Using ${state.workspace_name} in Clockify.`));
   const current = generation;
   const back = editing ? cancelEdit : state.destination.type === "clockify" ? (singleWorkspace ? connect : workspace) : destination;
   let ready = false;
@@ -410,8 +530,9 @@ async function projectsScreen() {
   const addButton = button("Add", add);
   const addField = field("Add a client or project", "project-name", "", "text", {placeholder: "For example, Acme Corp"});
   addField.querySelector("input").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addButton.click(); } });
-  page.append(el("div", {class: "row input-row"}, addField, addButton), el("div", {id: "project-pills", class: "pills", "aria-label": "Choose a project"}), el("div", {id: "project-details"}));
-  const loading = loadingRows("Reading your last 7 days of activity..."); page.append(loading);
+  const panel = el("div", {id: "project-panel", role: "tabpanel", tabindex: "0"}, el("div", {id: "project-details"}));
+  page.append(el("div", {class: "row input-row"}, addField, addButton), el("div", {id: "project-tabs", class: "project-tabs"}), panel);
+  const loading = loadingRows("Reading your last 7 days of activity..."); panel.append(loading);
   foot("Continue", async () => { await activityReady; if (ready) { await saveProjects(true); billing(); } }, back);
   const activityReady = api("activity").then(result => {
     if (generation !== current) return;
@@ -420,16 +541,17 @@ async function projectsScreen() {
     selected = Math.min(selected, Math.max(0, projects.length - 1));
     const search = field("Search your activity", "activity-search", activitySearch, "search");
     search.querySelector("input").addEventListener("input", e => { activitySearch = e.target.value; activityRows(); });
-    page.append(el("h2", {}, "Your activity from the last 7 days"), search,
+    panel.append(el("h2", {}, "Your activity from the last 7 days"), search,
       el("small", {}, "Picking an app includes all time in that app. Pick a window title for work in a shared app."),
       el("div", {id: "activity-list", class: "activity-list"}),
-      el("div", {class: "coverage"}, el("p", {id: "coverage-label", "aria-live": "polite"}), el("progress", {id: "coverage", max: "100", "aria-label": "Activity assigned"})));
+      el("div", {class: "coverage"}, el("div", {class: "coverage-heading"}, el("span", {}, "Assigned"), el("span", {id: "coverage-percent"})),
+        el("progress", {id: "coverage", max: "100", "aria-label": "Activity assigned"}), el("small", {id: "coverage-label", "aria-live": "polite"})));
     if (items.some(item => item.matches.length > 1)) page.append(el("small", {}, "When activity matches more than one project, the project higher in your list gets the time."));
     renderProject(); updateCoverage(result.coverage);
     ready = true;
   }).catch(error => {
     if (generation !== current) return;
-    loading.replaceWith(el("p", {class: "error", role: "status"}, error.message));
+    loading.remove(); showError(error);
     foot("Try again", projectsScreen, back);
   });
   await activityReady;
@@ -444,10 +566,10 @@ function billing() {
       el("span", {class: "muted"}, "per hour in"), field("Currency", `currency-${i}`, a.currency || state.currency || "", "text", {maxlength: "3", placeholder: "For example, CAD"}));
     rates.hidden = a.billing !== "hourly";
     group.append(choices("How do you bill this client?", `billing-${i}`, [
-      ["hourly", "By the hour", "Track time and an optional hourly amount", "◷"],
-      ["flat", "Flat monthly fee", "Track time covered by a fixed fee", "▤"],
-      ["retainer", "Retainer with a monthly cap", "Track time within your agreement", "◴"],
-      ["none", "Not billed", "Keep a record without billing", "○"]
+      ["hourly", "By the hour", "Track time and an optional hourly amount", "time"],
+      ["flat", "Flat monthly fee", "Track time covered by a fixed fee", "calendar"],
+      ["retainer", "Retainer", "Track time within your agreement", "in-progress"],
+      ["none", "Not billed", "Keep a record without billing", "close"]
     ], a.billing || "", v => { a.billing = v; rates.hidden = v !== "hourly"; }, false,
     "Your rate can be added later. No rate is assumed."), rates);
     const breaks = String(a.count_breaks_up_to_minutes ?? 0);
@@ -493,10 +615,14 @@ function billing() {
 
 function confirmation(parent, title, text, approveLabel, action, cancel = () => {}) {
   parent.querySelector(".confirmation")?.remove();
-  const panel = el("section", {class: "confirmation", tabindex: "-1", "aria-label": title}, el("h3", {}, title));
-  if (text) panel.append(el("pre", {}, text));
-  panel.append(el("div", {class: "row wrap"}, button(approveLabel, async () => { await action(); panel.remove(); }, "primary"),
-    button("Not now", () => { panel.remove(); cancel(); }, "text-button")));
+  const panel = el("section", {class: "confirmation notification warning", tabindex: "-1", "aria-label": title}, icon("warning--filled", 20));
+  const content = el("div", {class: "notification-content"}, el("h3", {}, title));
+  if (text) content.append(el("pre", {}, text));
+  const trigger = document.activeElement;
+  const restoreFocus = () => { if (trigger?.isConnected) trigger.focus(); };
+  content.append(el("div", {class: "row wrap"}, button("Not now", () => { panel.remove(); cancel(); restoreFocus(); }, "secondary"),
+    button(approveLabel, async () => { await action(); panel.remove(); restoreFocus(); }, "primary")));
+  panel.append(content);
   parent.append(panel); panel.focus();
   return panel;
 }
@@ -510,13 +636,14 @@ function reviewCard(initialDay, fallback = false) {
     if (!reviewed || value("day") !== day) throw Object.assign(new Error("Review this day before writing it."), {field: "day"});
     const preview = await api("write/preview", {day});
     const target = state.destination.type === "clockify" ? "Clockify" : "your spreadsheet";
-    confirmation(section, `Write ${preview.count} entries (${duration(preview.hours * 60)}) to ${target}?`,
+    const entries = `${preview.count} ${preview.count === 1 ? "entry" : "entries"}`;
+    confirmation(section, `Write ${entries} (${duration(preview.hours * 60)}) to ${target}?`,
       "The preview below checks existing entries and monthly limits. Already logged time is skipped.\n\n" + preview.text,
-      "Write them", async () => {
+      `Write ${entries}`, async () => {
         const result = await api("write", {day: preview.day, confirm: true, preview: preview.preview});
         notice(result.message); reviewed = null; writeButton.disabled = true;
       });
-  });
+  }, "primary");
   writeButton.disabled = true;
   const reportButton = button("Open full report", async () => { await api("review/open", {day}); notice("Your private report opened in your browser."); }, "text-button");
   reportButton.disabled = true;
@@ -542,16 +669,16 @@ function reviewCard(initialDay, fallback = false) {
       day = chosen; date.querySelector("input").value = chosen; reviewed = result;
       yesterday.setAttribute("aria-pressed", String(chosen === state.yesterday));
       today.setAttribute("aria-pressed", String(chosen === state.today));
-      const metric = (number, label) => el("div", {class: "metric"}, el("strong", {}, number), el("small", {}, label));
-      results.replaceChildren(el("div", {class: "metrics"}, metric(duration(result.minutes), "Time"), metric(String(result.entries.length), "Entries"), ...result.amounts.map(a => metric(a, "Hourly amount"))));
+      const metric = (number, label) => el("div", {class: "metric"}, el("small", {}, label), el("strong", {}, number));
+      results.replaceChildren(el("div", {class: "metrics"}, metric(duration(result.minutes), "Time"), metric(String(result.entries.length), "Entries"), ...result.amounts.map(a => metric(a, "Amount"))));
       if (!result.entries.length) results.append(el("p", {class: "muted"}, "No timesheet entries yet. Let ActivityWatch record some work, then review this day again."));
       else {
         const descriptions = result.entries.some(e => e.description !== e.project);
-        const fullDate = new Intl.DateTimeFormat(undefined, {weekday: "long", month: "long", day: "numeric"}).format(new Date(chosen + "T12:00:00"));
-        const table = el("table", {}, el("caption", {class: "muted"}, fullDate),
+        const fullDate = new Intl.DateTimeFormat(undefined, {weekday: "long", year: "numeric", month: "long", day: "numeric"}).format(new Date(chosen + "T12:00:00"));
+        const table = el("table", {}, el("caption", {class: "muted"}, el("strong", {}, "Timesheet entries"), fullDate),
           el("thead", {}, el("tr", {}, ...["Time", "Duration", "Project", ...(descriptions ? ["Description"] : [])].map(h => el("th", {scope: "col"}, h)))),
           el("tbody", {}, ...result.entries.map(e => el("tr", {}, el("td", {}, e.time), el("td", {}, duration(e.minutes)), el("td", {}, e.project), descriptions ? el("td", {}, e.description) : null))));
-        results.append(el("div", {class: "table-scroll"}, table));
+        results.append(el("div", {class: "table-scroll", tabindex: "0", role: "region", "aria-label": "Timesheet entries, scroll to see all columns"}, table));
       }
       if (result.unmatched_minutes > 0) results.append(el("p", {class: "review-note"}, `${duration(result.unmatched_minutes)} of activity did not match a project. `,
         button("Assign it", async () => { editing = true; await projectsScreen(); }, "text-button")));
@@ -561,10 +688,10 @@ function reviewCard(initialDay, fallback = false) {
         el("p", {}, "Nearby work can share an entry. Excluded gaps are not billed. Time away stays out unless your agreement counts it."),
         el("p", {}, "The write preview checks time already logged and monthly limits. Monthly local review can differ because writing reserves logged destination time.")));
       writeButton.disabled = !result.entries.length; reportButton.disabled = false;
-      writeButton.textContent = `Write ${day === state.yesterday ? "yesterday" : day === state.today ? "today" : "this day"} to ${state.destination.type === "clockify" ? "Clockify" : "your spreadsheet"}`;
+      buttonLabel(writeButton, `Write ${day === state.yesterday ? "yesterday" : day === state.today ? "today" : "this day"} to ${state.destination.type === "clockify" ? "Clockify" : "your spreadsheet"}`, "arrow--right");
     } catch (error) {
       if (request !== requestNumber) return;
-      results.replaceChildren(el("p", {class: "error", role: "status"}, error.message));
+      results.replaceChildren(); showError(error);
     }
   }
   return {section, load};
@@ -605,7 +732,7 @@ function scheduleCard() {
     } catch (error) { restore(); showError(error); }
     finally { input.disabled = timeInput.disabled = false; }
   }
-  const switchBox = toggle("Write yesterday's timesheet every morning at", "nightly", enabled, checked => preview(checked));
+  const switchBox = toggle("Every morning", "nightly", enabled, checked => preview(checked));
   const input = switchBox.querySelector("input");
   timeInput.addEventListener("change", () => preview(true));
   section.append(el("div", {class: "schedule-row"}, switchBox, timeField),
@@ -623,8 +750,8 @@ async function finish() {
   const reviewReady = review.load(state.yesterday);
   try {
     const result = await api("doctor"); if (generation !== current) return;
-    checks.replaceChildren(el("h2", {}, result.checks.every(c => c.ok) ? "All set" : "A few things to fix"), el("ul", {class: "checklist"}, ...result.checks.map(c => el("li", {class: c.ok ? "good" : "warning"}, `${c.ok ? "✓" : "!"} ${c.message}`))));
-  } catch (error) { checks.replaceChildren(el("h2", {}, "A few things to fix"), el("p", {class: "error"}, error.message)); }
+    checks.replaceChildren(el("h2", {}, result.checks.every(c => c.ok) ? "All set" : "A few things to fix"), el("ul", {class: "checklist"}, ...result.checks.map(c => el("li", {class: c.ok ? "good" : "warning"}, icon(c.ok ? "checkmark--filled" : "warning--alt--filled"), c.message))));
+  } catch (error) { checks.replaceChildren(el("h2", {}, "A few things to fix")); showError(error); }
   await reviewReady;
   if (generation !== current) return;
   if (state.destination.type === "clockify" && state.projects.some(p => p.agreement.billing === "hourly")) {
@@ -638,7 +765,7 @@ async function finish() {
           rates.replaceChildren(el("h2", {}, updated.failed ? "Some rates need attention" : "Clockify rates checked"), el("pre", {}, updated.messages.join("\n")));
         });
       }));
-    } catch (error) { rates.replaceChildren(el("p", {class: "error"}, error.message)); }
+    } catch (error) { rates.replaceChildren(el("h2", {}, "Clockify rates unavailable")); showError(error); }
   }
   if (generation !== current) return;
 }
@@ -646,31 +773,29 @@ async function finish() {
 async function home() {
   await projectQueue.catch(() => {});
   await refresh(); editing = false;
-  screen("home", "Your timesheets", "A clear view of your work, ready when you are.");
+  screen("home", "Your timesheets", "Review your time, write timesheets and manage your settings.");
   page.append(card("Last nightly run", el("p", {class: "muted"}, state.last_run)));
   const review = reviewCard(state.yesterday); page.append(review.section);
   const morning = scheduleCard(); morning.hidden = true;
   const billingNames = {hourly: "hourly", flat: "flat fee", retainer: "retainer", none: "not billed"};
   const kinds = [...new Set(state.projects.map(p => billingNames[p.agreement.billing] || "billing not set"))].join(", ");
-  function tile(title, description, status, drawing, action) {
-    const node = button("", action);
-    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    for (const [key, value] of Object.entries({viewBox: "0 0 24 24", width: "26", height: "26", fill: "none", stroke: "currentColor", "stroke-width": "1.6", "aria-hidden": "true"})) icon.setAttribute(key, value);
-    const path = document.createElementNS(icon.namespaceURI, "path"); path.setAttribute("d", drawing); icon.append(path);
-    node.append(icon, el("strong", {}, title), el("small", {}, description), status);
+  function tile(title, description, status, symbol, action) {
+    const node = button("", action, "clickable-tile");
+    node.replaceChildren(icon(symbol, 24), el("strong", {}, title), el("span", {class: "tile-description"}, description), status, icon("arrow--right"));
     return node;
   }
   page.append(el("div", {class: "tiles"},
-    tile("Projects and billing", "Match activity and manage agreements", el("small", {class: "tile-state"}, `${state.projects.length} ${state.projects.length === 1 ? "project" : "projects"}, ${kinds}`), "M3 7h7l2 2h9v11H3z M3 7V4h7l2 3h9v2", async () => { editing = true; await projectsScreen(); }),
-    tile("Every morning", "Set up automatic daily writes", el("small", {id: "morning-state", class: "tile-state"}, state.schedule), "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18 M12 7v5l4 2", () => { morning.hidden = !morning.hidden; if (!morning.hidden) { morning.scrollIntoView({block: "start"}); morning.querySelector("input").focus({preventScroll: true}); } }),
-    tile("Settings file", "Open in your text editor", el("small", {class: "tile-state"}, "Saved on this computer"), "M6 3h8l4 4v14H6z M14 3v5h4 M9 12h6 M9 16h6", async () => { await api("settings/open", {}); notice("Your settings file opened in your default editor."); }),
-    tile("Run setup again", "Start over with new answers", el("small", {class: "tile-state"}, "Review before saving"), "M4 10a8 8 0 1 1 1 8 M4 4v6h6", () => { editing = false; welcome(); })), morning);
+    tile("Projects and billing", "Match activity and manage agreements", el("small", {class: "tile-state"}, `${state.projects.length} ${state.projects.length === 1 ? "project" : "projects"}, ${kinds}`), "folder", async () => { editing = true; await projectsScreen(); }),
+    tile("Every morning", "Set up automatic daily writes", el("small", {id: "morning-state", class: "tile-state"}, state.schedule), "time", () => { morning.hidden = !morning.hidden; if (!morning.hidden) { morning.scrollIntoView({block: "start"}); morning.querySelector("input").focus({preventScroll: true}); } }),
+    tile("Settings file", "Open in your text editor", el("small", {class: "tile-state"}, "Saved on this computer"), "document", async () => { await api("settings/open", {}); notice("Your settings file opened in your default editor."); }),
+    tile("Run setup again", "Start over with new answers", el("small", {class: "tile-state"}, "Review before saving"), "renew", () => { editing = false; welcome(); })), morning);
   await review.load(state.yesterday);
 }
 
+document.addEventListener("click", e => { if (!e.target.closest("#project-menu, #project-more")) closeProjectMenu(); });
 document.addEventListener("keydown", e => {
   if (e.key === "Enter" && !e.defaultPrevented && !e.isComposing && !e.ctrlKey && !e.metaKey && !e.altKey &&
-      !e.target.closest("button, a, summary, textarea, .confirmation") && primary && !primary.disabled) { e.preventDefault(); primary.click(); }
+      !e.target.closest("button, a, summary, textarea, select, input[type=checkbox], input[type=radio], .confirmation") && primary && !primary.disabled) { e.preventDefault(); primary.click(); }
 });
 document.querySelector("#brand").addEventListener("click", e => {
   e.preventDefault();
@@ -679,7 +804,7 @@ document.querySelector("#brand").addEventListener("click", e => {
 document.querySelector("#quit").addEventListener("click", () => {
   confirmation(page, "Close autohours?", "Unsaved setup answers will be lost. Saved settings and completed writes stay on this computer.", "Close app", async () => {
     await api("quit", {}); clearInterval(heartbeat);
-    page.replaceChildren(el("h1", {}, "See you next time"), el("p", {}, "You can close this window now.")); footer.replaceChildren(); window.close();
+    page.replaceChildren(el("h1", {}, "autohours is closed"), el("p", {}, "You can close this window now.")); footer.replaceChildren(); window.close();
   });
 });
 async function beat() {

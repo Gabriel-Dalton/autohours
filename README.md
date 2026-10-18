@@ -262,6 +262,10 @@ Codex and other agents can use [AGENTS.md](AGENTS.md). Prefer `autohours setup` 
 
 **Is CSV safe to open in a spreadsheet?** It contains your configured project names and descriptions verbatim. Do not use untrusted formula-like text in those fields if your spreadsheet evaluates formulas on import.
 
+## Credits
+
+The desktop web app follows IBM Carbon Design System v11. Bundled IBM Plex Sans fonts are licensed under the [SIL Open Font License](src/autohours/web/fonts/OFL.txt). Bundled Carbon icons are licensed under [Apache License 2.0](src/autohours/web/icons-LICENSE.txt).
+
 ## Contributing
 
 ```sh
