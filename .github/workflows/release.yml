@@ -15,7 +15,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       PYTHONDONTWRITEBYTECODE: '1'
-      PYINSTALLER_CONFIG_DIR: ${{ runner.temp }}/pyinstaller-cache
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -31,6 +30,8 @@ jobs:
         run: python -B -m pytest -p no:cacheprovider
       - name: Build app
         shell: bash
+        env:
+          PYINSTALLER_CONFIG_DIR: ${{ runner.temp }}/pyinstaller-cache
         run: python -B -m PyInstaller --noconfirm --clean --workpath "$RUNNER_TEMP/autohours-work" --distpath "$RUNNER_TEMP/autohours-dist" packaging/autohours.spec
       - name: Package Windows executable
         if: runner.os == 'Windows'

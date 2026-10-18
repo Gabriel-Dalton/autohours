@@ -40,13 +40,13 @@ def test_launchd_plist_contains_arguments_time_and_private_logs(tmp_path):
 
 
 def test_cron_preserves_other_jobs_replaces_own_and_escapes_paths(tmp_path):
-    old = "# Personal jobs\n0 12 * * * echo keep\n0 4 * * * old # autohours daily\n"
+    old = "# Personal jobs\n0 12 * * * echo keep\n0 4 * * * stale-job-command # autohours daily\n"
     config = tmp_path / "a '$(echo nope) 100%.toml"
     plan = schedule.build_plan(config, "07:30", platform="linux", executable="/opt/python 3/bin/python",
                                directory=tmp_path, crontab=old)
     assert plan.commands == [["crontab", "-"]]
     assert plan.stdin.startswith("# Personal jobs\n0 12 * * * echo keep\n30 7 * * * umask 077; ")
-    assert "old" not in plan.stdin and plan.stdin.count(schedule.MARKER) == 1
+    assert "stale-job-command" not in plan.stdin and plan.stdin.count(schedule.MARKER) == 1
     assert r"100\%" in plan.stdin
     shell_command = plan.stdin.splitlines()[-1].split("umask 077; ", 1)[1].split(" >> ")[0].replace(r"\%", "%")
     assert shlex.split(shell_command)[0] == "XDG_CONFIG_HOME=" + str(tmp_path.parent)
