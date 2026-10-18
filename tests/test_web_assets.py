@@ -165,14 +165,14 @@ def test_sprite_references_exist():
     # All dynamic <use> elements resolve through this explicit local href map.
     references = set(re.findall(r'"/icons\.svg#([\w-]+)"', script))
     assert references and references <= ids
-    assert 'use.setAttribute("href", iconPaths[name])' in script
+    assert 'use.setAttribute("href", spriteReady ? "#" + name : iconPaths[name])' in script
     assert set(re.findall(r'\bicon\("([\w-]+)"', script)) <= references
 
     class Uses(HTMLParser):
         def handle_starttag(self, tag, attrs):
             if tag == "use":
                 href = dict(attrs)["href"]
-                assert href.startswith("/icons.svg#")
+                assert href.startswith("#")
                 assert href.split("#", 1)[1] in ids
 
     Uses().feed((WEB / "index.html").read_text(encoding="utf-8"))
@@ -206,3 +206,127 @@ def test_fonts_and_licences_ship_in_both_packages():
     bundled = {Path(src): Path(dest) for src, dest in scope["datas"]}
     for path in expected:
         assert bundled[path] == Path("autohours/web") / path.relative_to(WEB).parent
+
+
+def test_notification_sprite_and_closed_state_helpers():
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node is needed to execute the bundled JavaScript helpers")
+    source = (WEB / "app.js").read_text(encoding="utf-8")
+    helpers = source[source.index("async function loadIcons("):source.index("function buttonLabel(")]
+    helpers += source[source.index("function notification("):source.index("function clearErrors(")]
+    helpers += source[source.index("function closedScreen("):source.index('document.addEventListener("visibilitychange"')]
+    checks = r'''
+const assert = require("node:assert/strict");
+class Node {
+  constructor(tag = "div", attrs = {}, ...children) {
+    this.tag = tag; this.attrs = {...attrs}; this.children = children.filter(v => v != null);
+    this.dataset = {}; this.classList = {remove() {}}; this.namespaceURI = "http://www.w3.org/2000/svg";
+  }
+  setAttribute(k, v) { this.attrs[k] = v; }
+  getAttribute(k) { return this.attrs[k]; }
+  append(...nodes) { this.children.push(...nodes); }
+  prepend(node) { this.children.unshift(node); }
+  replaceChildren(...nodes) { this.children = nodes; }
+  focus() { this.focused = true; }
+  remove() { this.removed = true; }
+  scrollIntoView() {}
+}
+const el = (...args) => new Node(...args);
+const button = () => new Node("button");
+const page = new Node(), toast = new Node(), footer = new Node();
+const shell = new Node(), progress = new Node(), quit = new Node(), preview = new Node();
+const staticUse = new Node("use", {href: "#time"});
+const templateUse = new Node("use", {href: "#time"});
+const document = {
+  body: new Node(),
+  querySelector: key => ({"#app-shell": shell, "#setup-progress": progress, "#quit": quit, ".welcome-preview": preview})[key],
+  querySelectorAll: key => key === "use" ? [staticUse] : [{content: {querySelectorAll: () => [templateUse]}}],
+  createElementNS: (ns, tag) => new Node(tag),
+  importNode: root => new Node("svg")
+};
+let invalid = false;
+class DOMParser {
+  parseFromString(text, type) {
+    assert.equal(type, "image/svg+xml");
+    return {documentElement: {localName: "svg", namespaceURI: "http://www.w3.org/2000/svg"}, querySelector: () => invalid};
+  }
+}
+let spriteReady = false, disconnected = false, token = "token", generation = 1;
+let heartbeat = 12, awTimer = 13, primary = new Node(), beforeStepBack = () => {};
+const sessionKey = "test";
+const cleared = [];
+const clearInterval = id => cleared.push(id), clearTimeout = id => cleared.push(id);
+const sessionStorage = {removeItem: key => assert.equal(key, sessionKey)};
+const iconPaths = {time: "/icons.svg#time", "error--filled": "/icons.svg#error--filled", "information--filled": "/icons.svg#information--filled", "warning--filled": "/icons.svg#warning--filled", "checkmark--filled": "/icons.svg#checkmark--filled"};
+let calls = 0;
+let fetch = async url => { calls++; assert.equal(url, "/icons.svg"); return {ok: true, text: async () => "sprite"}; };
+(async () => {
+  await loadIcons();
+  assert.equal(calls, 1);
+  assert.equal(spriteReady, true);
+  assert.equal(document.body.children[0].attrs["aria-hidden"], "true");
+  assert.equal(staticUse.attrs.href, "#time");
+  assert.equal(templateUse.attrs.href, "#time");
+  fetch = async () => { throw new Error("offline"); };
+  assert.equal(icon("time").children[0].attrs.href, "#time", "icons remain local after shutdown");
+  spriteReady = false;
+  await loadIcons();
+  assert.equal(staticUse.attrs.href, "/icons.svg#time");
+  assert.equal(templateUse.attrs.href, "/icons.svg#time");
+  assert.equal(icon("time").children[0].attrs.href, "/icons.svg#time");
+  fetch = async () => ({ok: true, text: async () => "bad XML"}); invalid = true;
+  await loadIcons(); assert.equal(spriteReady, false);
+  assert.equal(document.body.children.length, 1, "invalid XML is not inserted");
+  for (const kind of ["error", "warning", "info", "success"]) {
+    const n = notification(kind, "Specific title", "Next step", true);
+    assert.equal(n.attrs.role, kind === "error" ? "alert" : "status");
+    assert.equal(n.children[0].attrs.class, "icon icon-20");
+    assert.equal(n.children[1].children[0].tag, "strong");
+    assert.equal(n.children[1].children[1].tag, "p");
+    assert.equal(n.children[2].attrs["aria-label"], "Close notification");
+  }
+  notice("Specific failure", true);
+  assert.deepEqual(toast.children[0].children[1].children[0].children, ["Specific failure"]);
+  assert.equal(toast.children[0].children[1].children.length, 1);
+  notice("Specific failure", true, "Try this next");
+  assert.equal(toast.children[0].children[1].children.length, 2);
+  let resolve;
+  fetch = () => new Promise(done => { resolve = done; });
+  const pending = api("state");
+  closedScreen();
+  resolve({ok: true, json: async () => ({saved: true})});
+  await assert.rejects(pending, /autohours has closed/);
+  assert.equal(shell.dataset.screen, "closed");
+  assert.equal(token, ""); assert.equal(primary, null);
+  assert.deepEqual(cleared, [12, 13]);
+  assert(progress.hidden && footer.hidden && toast.hidden && quit.hidden);
+  assert(preview.removed);
+  const content = page.children[0];
+  assert.equal(content.children[0].attrs.class, "icon icon-24");
+  assert.deepEqual(content.children[1].children, ["autohours has closed"]);
+  assert(content.children[1].focused);
+  notice("Late failure", true); assert.equal(toast.children.length, 0);
+  await beat(); assert.deepEqual(cleared, [12, 13]);
+  disconnected = false; closedScreen(true);
+  assert.deepEqual(page.children[0].children[1].children, ["This window has expired"]);
+  disconnected = false; fetch = async () => { throw new Error("offline"); };
+  await beat(); assert(disconnected);
+})().catch(error => { console.error(error); process.exitCode = 1; });
+'''
+    subprocess.run([node, "-e", helpers + checks], check=True, capture_output=True, text=True)
+
+
+def test_neutral_notifications_and_no_accent_stripes():
+    css = (WEB / "app.css").read_text(encoding="utf-8")
+    assert "border-left:" not in css
+    assert "border-inline-start:" not in css
+    assert "border-top-color:" not in css
+    notification = re.search(r"\.notification \{([^}]+)\}", css).group(1)
+    assert "border: 1px solid var(--border-subtle-01)" in notification
+    assert "--notification-background: var(--layer-01)" in notification
+    assert ".notification-content strong { display: block; font-weight: 600; }" in css
+    assert ".closed-state > .icon { color: var(--text-secondary);" in css
+    script = (WEB / "app.js").read_text(encoding="utf-8")
+    assert script.count("await loadIcons();") == 1
+    assert '(async () => {\n  await loadIcons();' in script

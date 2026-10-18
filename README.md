@@ -2,37 +2,51 @@
 
 [![Tests](https://github.com/Gabriel-Dalton/autohours/actions/workflows/ci.yml/badge.svg)](https://github.com/Gabriel-Dalton/autohours/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
 **Your timesheet, filled in from what you actually worked on.**
 
-autohours reads the activity that [ActivityWatch](https://activitywatch.net/) records on your computer, sorts it into your clients and projects, leaves out the time you were away, and writes the result to Clockify or a spreadsheet. It bills the way you agreed with each client: hourly or flat, with or without short breaks, rounded how you like, up to a monthly limit. You see every entry before anything is written.
+autohours looks at what you did on your computer, works out which client each piece belongs to, leaves out the time you were away, and fills in your timesheet in Clockify or a spreadsheet. You check it before anything is saved.
 
-![The autohours review screen showing a day of timesheet entries for two clients, with totals for time, entries and amount](docs/images/review.png)
+![The autohours home screen showing a day of timesheet entries for two clients, with totals for time, entries and amount](docs/images/review.png)
+
+## Who it's for
+
+- **Contractors and freelancers** who bill by the hour and would rather not start and stop timers all day.
+- **Part-timers and people with more than one job**, where each client is billed differently: one hourly, one on a flat fee, one where short breaks count and calls are rounded up.
+- **Anyone who forgets to track time** and rebuilds the week from memory on Friday.
+
+## Who it's not for
+
+- **Employers watching staff.** autohours is for tracking your own time on your own computer. It has no team features and sends nothing to anyone else.
+- **Work that mostly happens away from a computer.** It only sees what happens on the computer it runs on. You can still add other time by hand.
+- **Invoicing.** It fills in timesheets; your invoicing tool takes it from there.
+
+## How it works
+
+1. [ActivityWatch](https://activitywatch.net/), a free recorder, notes which apps and windows you use and when you step away. Everything stays on your computer.
+2. You tell autohours which apps and windows belong to each client, and how you bill each one. You click through a few screens; there is nothing to write.
+3. Each day, autohours turns that into tidy timesheet entries. You review them, then save them to Clockify or a spreadsheet, or let it do yesterday automatically each morning.
+
+| Pick what you work on | Say how you bill each client |
+| --- | --- |
+| ![Projects screen: two clients as tabs and last week's apps and windows with hours, some assigned to each client](docs/images/projects.png) | ![Billing screen: hourly billing selected with a rate of 120 USD and short breaks counted up to 10 minutes](docs/images/billing.png) |
+
+Screenshots use made-up demo data.
 
 ## Get started
 
-You need [ActivityWatch](https://activitywatch.net/downloads/) installed and running. It is free and keeps everything on your computer. Then pick one:
+1. Install [ActivityWatch](https://activitywatch.net/downloads/) and leave it running.
+2. Download autohours from the [latest release](https://github.com/Gabriel-Dalton/autohours/releases/latest) and open it:
+   - **Windows:** `autohours-windows.exe`
+   - **Mac:** `autohours-macos-apple-silicon.zip` for M1 or newer, or `autohours-macos-intel.zip` for older Macs. Unzip it and move **autohours** to Applications.
+3. Follow the screens. Setup takes about five minutes.
 
-### 1. Download the app (easiest)
+The downloads are not signed yet, so the first time you open one your computer asks whether to trust it. On Windows choose **More info**, then **Run anyway**. On a Mac, right-click the app and choose **Open**; if that is refused, go to **System Settings > Privacy & Security** and choose **Open Anyway**.
 
-Get it from the [latest release](https://github.com/Gabriel-Dalton/autohours/releases/latest):
+<details>
+<summary>Other ways to install</summary>
 
-- **Windows:** download `autohours-windows.exe` and open it.
-- **Mac:** download `autohours-macos-apple-silicon.zip` (M1 or newer) or `autohours-macos-intel.zip` (older Intel Macs), unzip it and move **autohours** to Applications. Not sure which? Apple menu > **About This Mac** shows "Chip: Apple" or "Processor: Intel".
-
-Nothing else to install. The window walks you through everything.
-
-The downloads are not signed yet, so your computer asks whether you trust them the first time:
-
-- **Windows:** choose **More info**, then **Run anyway**.
-- **Mac:** right-click the app and choose **Open**. If macOS still refuses, open **System Settings > Privacy & Security** and choose **Open Anyway**.
-
-Only download autohours from this repository.
-
-### 2. Install with one line
-
-Paste this into a terminal. It installs what it needs and opens the app.
+**One line in a terminal.** This installs everything it needs and opens the app.
 
 Windows (PowerShell):
 
@@ -46,66 +60,32 @@ Mac and Linux:
 curl -fsSL https://raw.githubusercontent.com/Gabriel-Dalton/autohours/main/install.sh | sh
 ```
 
-You can read [install.ps1](install.ps1) or [install.sh](install.sh) first. Afterwards, run `autohours` to open the app, or `autohours setup` to answer questions in the terminal instead.
+**With Claude Code or Codex.** Say "Help me set up autohours" and point it at [the setup skill](skills/autohours-setup/SKILL.md). Type your Clockify key yourself, never into the chat.
 
-### 3. Ask Claude Code or Codex
-
-Say "Help me set up autohours" and point it at [the setup skill](skills/autohours-setup/SKILL.md). Type your Clockify key into the app or the hidden prompt yourself, never into the chat.
-
-## How setup works
-
-| Pick what you work on | Tell it how you bill |
-| --- | --- |
-| ![Projects screen: two clients as tabs and last week's apps and window titles with hours, some assigned to each client](docs/images/projects.png) | ![Billing screen: hourly billing selected with a rate of 120 USD and short breaks counted up to 10 minutes](docs/images/billing.png) |
-
-| Welcome | Dark mode |
-| --- | --- |
-| ![Welcome screen listing what autohours does, with the detected time zone](docs/images/welcome.png) | ![ActivityWatch screen in dark mode confirming ActivityWatch is running](docs/images/activitywatch-dark.png) |
-
-1. **Check ActivityWatch** is running. The app helps you download it if not.
-2. **Choose where timesheets go:** Clockify, or a spreadsheet file that opens in Excel, Numbers or Google Sheets.
-3. **Add your clients** and tick the apps, websites and windows from last week that belong to each one. There are no rules to write.
-4. **Say how you bill each client:** hourly or flat, rate and currency, whether short breaks and calls count, rounding, and any monthly limit.
-5. **Check a day** and write it when it looks right. You can turn on a morning run that writes yesterday automatically.
-
-After setup, the home screen shows any day's hours and what you would bill, and lets you assign anything it could not match. Screenshots use made-up demo data.
+</details>
 
 ## Your privacy
 
-- **Window titles and website addresses never leave your computer.** Only the project, your own description, the times and whether it is billable go to Clockify or the spreadsheet.
-- There is no account, no tracking and no cloud service. autohours only talks to ActivityWatch on your computer and, if you choose it, Clockify.
-- Your Clockify key is kept in your own user settings, never in a project file.
-- Nothing is written until you confirm it, and existing entries are never overwritten or deleted.
-
-The activity list in the app shows your private window titles, so check screenshots before you share them. See the [privacy details](docs/how-it-works.md#privacy-details).
+- **Window titles and website addresses never leave your computer.** Clockify or the spreadsheet only gets the client, your own description, the times and whether it is billable.
+- No account, no tracking, no cloud service.
+- Nothing is saved until you confirm it, and existing entries are never changed or deleted.
 
 ## Questions
 
-**Does it cost anything?** No. autohours is free and open source. ActivityWatch is free, and Clockify's free plan is enough.
+**Does it cost anything?** No. autohours and ActivityWatch are free, and Clockify's free plan is enough.
 
-**What if my laptop was asleep or I stepped away?** That time is not counted, unless your agreement says short breaks or calls count.
+**What if I step away or my laptop sleeps?** That time is left out, unless you agreed with that client that short breaks or calls count.
 
-**What about work I did away from the computer?** Add it with `autohours accept` or straight in Clockify. autohours never writes over existing entries.
+**Can I undo it?** Delete or edit the entries in Clockify or your spreadsheet. autohours never deletes anything.
 
-**Can I undo a write?** Delete or edit the entries in Clockify or your spreadsheet. autohours never deletes anything.
-
-**My day looks empty.** Check that ActivityWatch's dashboard shows activity for that day, then use **Assign it** on the home screen to match anything left over.
-
-**Does it guess with AI?** No. It only uses the apps and windows you picked for each client. Nothing is sent to an AI service.
-
-**Can I use the command line or edit the settings file?** Yes. See the [command line guide](docs/command-line.md).
+**Does it use AI?** No. It only matches the apps and windows you chose for each client.
 
 ## Learn more
 
-- [The desktop app](docs/desktop-app.md): each screen, and how the local window is secured
-- [Command line and settings file](docs/command-line.md)
+- [The desktop app, screen by screen](docs/desktop-app.md)
 - [How matching and billing work](docs/how-it-works.md)
-- [Scheduling nightly runs](docs/scheduling.md)
-- [Clockify details](docs/clockify.md)
-- [Contributing and building the downloads](CONTRIBUTING.md)
-- [Reporting a security problem](SECURITY.md)
+- [Command line and settings file](docs/command-line.md)
+- [Contributing](CONTRIBUTING.md) and [reporting a security problem](SECURITY.md)
 - [Changelog](CHANGELOG.md)
 
-## Credits
-
-The app's design follows the IBM Carbon Design System. Bundled IBM Plex Sans fonts are under the [SIL Open Font License](src/autohours/web/fonts/OFL.txt) and Carbon icons under the [Apache License 2.0](src/autohours/web/icons-LICENSE.txt). autohours is released under the [MIT License](LICENSE).
+Released under the [MIT License](LICENSE). The app's design follows the IBM Carbon Design System; fonts and icons are credited in [CONTRIBUTING.md](CONTRIBUTING.md#credits).

@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>autohours</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon-256.png" type="image/png" sizes="256x256">
   <link rel="stylesheet" href="/app.css">
   <script src="/app.js" defer></script>
 </head>
@@ -12,10 +14,10 @@
   <a class="skip" href="#content">Skip to content</a>
   <header class="topbar">
     <a class="brand" href="/" id="brand" aria-label="autohours home">
-      <svg class="icon icon-20" aria-hidden="true" focusable="false"><use href="/icons.svg#time"></use></svg>
+      <svg class="icon icon-20" aria-hidden="true" focusable="false"><use href="#time"></use></svg>
       <span>autohours</span>
     </a>
-    <button id="quit" class="header-action" type="button" aria-label="Close app">Close app<svg class="icon icon-20" aria-hidden="true" focusable="false"><use href="/icons.svg#power"></use></svg></button>
+    <button id="quit" class="header-action" type="button" aria-label="Close app">Close app<svg class="icon icon-20" aria-hidden="true" focusable="false"><use href="#power"></use></svg></button>
   </header>
   <div class="app-shell" id="app-shell">
   <nav id="setup-progress" class="setup-progress" aria-label="Setup progress" hidden>
@@ -29,7 +31,7 @@
     <div id="page"><h1>Opening your timesheets...</h1><div class="skeleton" aria-label="Loading"></div></div>
     <footer id="footer"></footer>
   </main>
-  <div class="privacy-container"><p class="privacy-footer"><svg class="icon" aria-hidden="true" focusable="false"><use href="/icons.svg#information--filled"></use></svg>Private by design. Your activity stays on this computer.</p></div>
+  <div class="privacy-container"><p class="privacy-footer"><svg class="icon" aria-hidden="true" focusable="false"><use href="#information--filled"></use></svg>Private by design. Your activity stays on this computer.</p></div>
   </div>
   </div>
   <template id="welcome-preview">
@@ -37,13 +39,13 @@
       <p class="visually-hidden">Example: work activity becomes two client timesheet entries, while Spotify is not billed.</p>
       <div class="preview-illustration" aria-hidden="true">
         <p class="preview-label">Your activity</p>
-        <div class="preview-row"><svg class="icon" focusable="false"><use href="/icons.svg#laptop"></use></svg><span>invoice-api - Visual Studio Code</span></div>
-        <div class="preview-row"><svg class="icon" focusable="false"><use href="/icons.svg#laptop"></use></svg><span>Homepage redesign - Figma</span></div>
-        <div class="preview-row preview-muted"><svg class="icon" focusable="false"><use href="/icons.svg#laptop"></use></svg><span>Spotify</span></div>
-        <div class="preview-flow"><svg class="icon icon-24" focusable="false"><use href="/icons.svg#arrow--right"></use></svg></div>
+        <div class="preview-row"><svg class="icon" focusable="false"><use href="#laptop"></use></svg><span>invoice-api - Visual Studio Code</span></div>
+        <div class="preview-row"><svg class="icon" focusable="false"><use href="#laptop"></use></svg><span>Homepage redesign - Figma</span></div>
+        <div class="preview-row preview-muted"><svg class="icon" focusable="false"><use href="#laptop"></use></svg><span>Spotify</span></div>
+        <div class="preview-flow"><svg class="icon icon-24" focusable="false"><use href="#arrow--right"></use></svg></div>
         <p class="preview-label">Your timesheet</p>
-        <div class="preview-entry"><svg class="icon" focusable="false"><use href="/icons.svg#checkmark--filled"></use></svg><strong>Acme Corp</strong><span>2h 15m</span></div>
-        <div class="preview-entry"><svg class="icon" focusable="false"><use href="/icons.svg#checkmark--filled"></use></svg><strong>Globex</strong><span>1h 30m</span></div>
+        <div class="preview-entry"><svg class="icon" focusable="false"><use href="#checkmark--filled"></use></svg><strong>Acme Corp</strong><span>2h 15m</span></div>
+        <div class="preview-entry"><svg class="icon" focusable="false"><use href="#checkmark--filled"></use></svg><strong>Globex</strong><span>1h 30m</span></div>
         <p class="preview-excluded">Spotify: not billed</p>
       </div>
     </aside>

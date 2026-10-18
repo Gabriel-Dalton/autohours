@@ -1,7 +1,7 @@
 "use strict";
 
 // The view sends answers to Python. It never calculates billing or builds rules.
-let token = "", heartbeat;
+let token = "", heartbeat, disconnected = false, spriteReady = false;
 const sessionKey = "autohours-token";
 const page = document.querySelector("#page");
 const footer = document.querySelector("#footer");
@@ -58,12 +58,37 @@ function el(tag, attrs = {}, ...children) {
   }
   return node;
 }
+async function loadIcons() {
+  try {
+    const response = await fetch("/icons.svg", {cache: "no-store", credentials: "omit"});
+    if (!response.ok) throw new Error("Sprite unavailable");
+    const parsed = new DOMParser().parseFromString(await response.text(), "image/svg+xml");
+    const root = parsed.documentElement;
+    if (parsed.querySelector("parsererror") || root.localName !== "svg" || root.namespaceURI !== "http://www.w3.org/2000/svg") throw new Error("Invalid sprite");
+    const sprite = document.importNode(root, true);
+    sprite.setAttribute("class", "inline-sprite");
+    sprite.setAttribute("aria-hidden", "true");
+    sprite.setAttribute("focusable", "false");
+    document.body.prepend(sprite);
+    spriteReady = true;
+  } catch {
+    // Fall back to the bundled external sprite if embedding fails.
+  }
+  const update = root => root.querySelectorAll("use").forEach(use => {
+    const href = use.getAttribute("href");
+    if (href?.startsWith("#") || href?.startsWith("/icons.svg#")) {
+      use.setAttribute("href", (spriteReady ? "" : "/icons.svg") + href.slice(href.indexOf("#")));
+    }
+  });
+  update(document);
+  document.querySelectorAll("template").forEach(template => update(template.content));
+}
 function icon(name, size = 16) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   for (const [key, value] of Object.entries({class: `icon icon-${size}`, "aria-hidden": "true", focusable: "false"})) svg.setAttribute(key, value);
   const use = document.createElementNS(svg.namespaceURI, "use");
   if (!Object.hasOwn(iconPaths, name)) throw new Error("Unknown local icon: " + name);
-  use.setAttribute("href", iconPaths[name]);
+  use.setAttribute("href", spriteReady ? "#" + name : iconPaths[name]);
   svg.append(use);
   return svg;
 }
@@ -81,7 +106,7 @@ function button(label, action, className = "", name = null) {
 function notification(kind, title, subtitle = "", dismiss = false) {
   const symbols = {success: "checkmark--filled", info: "information--filled", warning: "warning--filled", error: "error--filled"};
   const node = el("div", {class: `notification ${kind}`, role: kind === "error" ? "alert" : "status"},
-    icon(symbols[kind], 20), el("div", {class: "notification-content"}, el("strong", {}, title), subtitle ? " " + subtitle : null));
+    icon(symbols[kind], 20), el("div", {class: "notification-content"}, el("strong", {}, title), subtitle ? el("p", {}, subtitle) : null));
   if (dismiss) {
     const close = button("", () => { node.remove(); }, "icon-button", "close");
     close.setAttribute("aria-label", "Close notification");
@@ -90,16 +115,19 @@ function notification(kind, title, subtitle = "", dismiss = false) {
   return node;
 }
 async function api(path, data, method = data === undefined ? "GET" : "POST") {
+  if (disconnected) throw new Error("autohours has closed");
   const response = await fetch("/api/" + path, {
     method, headers: {"X-Autohours-Token": token, ...(data === undefined ? {} : {"Content-Type": "application/json"})},
     body: data === undefined ? undefined : JSON.stringify(data), cache: "no-store", credentials: "omit"
   });
   const result = await response.json();
-  if (!response.ok) throw Object.assign(new Error(result.error || "Please try again."), {field: result.field});
+  if (disconnected) throw new Error("autohours has closed");
+  if (!response.ok) throw Object.assign(new Error(result.error || "autohours could not process this request."), {field: result.field, nextStep: result.error ? "" : "Try the action again. If it still fails, close this window and open autohours again."});
   return result;
 }
-function notice(message, failure = false) {
-  toast.replaceChildren(...(message ? [notification(failure ? "error" : "info", failure ? "Could not complete the action" : "Update", message, true)] : []));
+function notice(message, failure = false, nextStep = "") {
+  if (disconnected) return;
+  toast.replaceChildren(...(message ? [notification(failure ? "error" : "info", message, nextStep, true)] : []));
   toast.hidden = !message;
   if (failure && message) toast.scrollIntoView({block: "nearest"});
 }
@@ -160,6 +188,7 @@ function animateValue(node, target, paint, initial = 0) {
   tick(start);
 }
 function showError(error) {
+  if (disconnected) return;
   if (step === "projects" && /^project-\d+$/.test(error.field || "")) {
     selected = Number(error.field.slice(8)); renderProject();
   }
@@ -180,7 +209,8 @@ function showError(error) {
     const target = /^project-\d+$/.test(error.field) ? document.querySelector("#activity-list input:not(:disabled)") || field :
       field.matches("input, select, button") ? field : field.querySelector("input, button") || field;
     target.focus();
-  } else notice(error.message || "Could not connect. Reopen autohours and try again.", true);
+  } else notice(error instanceof TypeError ? "autohours could not be reached." : error.message || "autohours could not be reached.", true,
+    error instanceof TypeError || !error.message ? "Close this window and open autohours again to carry on." : error.nextStep || "");
 }
 async function work(control, action) {
   if (control?.disabled) return;
@@ -314,7 +344,7 @@ function welcome() {
 function activityWatch() {
   screen("activitywatch", "Connect ActivityWatch", "ActivityWatch records which apps you use and when you step away.");
   const status = card(null, el("p", {role: "status", "aria-live": "polite"}, "Checking ActivityWatch..."));
-  const download = link("Download ActivityWatch", "https://activitywatch.net/downloads/"); download.hidden = true;
+  const download = el("p", {}, link("Download ActivityWatch", "https://activitywatch.net/downloads/")); download.hidden = true;
   const hostBox = el("div", {hidden: true});
   let hostname = state.activitywatch.hostname || "";
   const web = toggle("Also use websites from the ActivityWatch browser extension", "use_web", state.activitywatch.use_web || false, () => check());
@@ -855,7 +885,7 @@ async function finish() {
   try {
     const result = await api("doctor"); if (generation !== current) return;
     checks.replaceChildren(el("h2", {}, result.checks.every(c => c.ok) ? "All set" : "A few things to fix"), el("ul", {class: "checklist"}, ...result.checks.map(c => el("li", {class: c.ok ? "good" : "warning"}, icon(c.ok ? "checkmark--filled" : "warning--alt--filled"), c.message))));
-  } catch (error) { checks.replaceChildren(el("h2", {}, "A few things to fix")); showError(error); }
+  } catch (error) { checks.replaceChildren(el("h2", {}, "Settings check unavailable"), el("p", {}, "Open Check and finish again to retry the settings check.")); showError(error); }
   await reviewReady;
   if (generation !== current) return;
   if (state.destination.type === "clockify" && state.projects.some(p => p.agreement.billing === "hourly")) {
@@ -903,20 +933,45 @@ document.addEventListener("keydown", e => {
 });
 document.querySelector("#brand").addEventListener("click", e => {
   e.preventDefault();
-  if (state?.saved && step !== "home") confirmation(page, "Return home?", "Unsaved changes will be discarded. Saved settings and completed writes stay as they are.", "Return home", cancelEdit);
+  if (!disconnected && state?.saved && step !== "home") confirmation(page, "Return home?", "Unsaved changes will be discarded. Saved settings and completed writes stay as they are.", "Return home", cancelEdit);
 });
 document.querySelector("#quit").addEventListener("click", () => {
   confirmation(page, "Close autohours?", "Unsaved setup answers will be lost. Saved settings and completed writes stay on this computer.", "Close app", async () => {
-    await api("quit", {}); clearInterval(heartbeat);
-    page.replaceChildren(el("h1", {}, "autohours is closed"), el("p", {}, "You can close this window now.")); footer.replaceChildren(); window.close();
+    await api("quit", {});
+    closedScreen(); window.close();
   });
 });
+function closedScreen(expired = false) {
+  if (disconnected) return;
+  disconnected = true; token = ""; generation++;
+  clearInterval(heartbeat); clearTimeout(awTimer);
+  try { sessionStorage.removeItem(sessionKey); } catch {}
+  primary = null; beforeStepBack = () => {};
+  const shell = document.querySelector("#app-shell");
+  shell.dataset.screen = "closed";
+  shell.dataset.layout = "readable";
+  shell.classList.remove("short-screen");
+  document.querySelector(".welcome-preview")?.remove();
+  document.querySelector("#setup-progress").hidden = true;
+  document.querySelector("#quit").hidden = true;
+  footer.replaceChildren(); footer.hidden = true;
+  toast.replaceChildren(); toast.hidden = true;
+  page.classList.remove("page-enter");
+  const heading = el("h1", {tabindex: "-1"}, expired ? "This window has expired" : "autohours has closed");
+  page.replaceChildren(el("section", {class: "closed-state"}, icon("time", 24), heading,
+    el("p", {}, expired ? "This window no longer has an active autohours session. Your saved settings are safe." :
+      "This window lost its connection, usually because autohours was closed or the computer went to sleep. Your saved settings are safe."),
+    el("p", {}, "Close this window and open autohours again to carry on.")));
+  heading.focus();
+}
 async function beat() {
+  if (disconnected) return;
   try { await api("heartbeat", {}); }
-  catch { notice("This window has disconnected. Reopen autohours to continue.", true); }
+  catch { closedScreen(); }
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden && token) beat(); });
 (async () => {
+  await loadIcons();
   try {
     const bootstrap = new URLSearchParams(location.hash.slice(1)).get("b");
     history.replaceState(null, "", location.pathname + location.search);
@@ -935,11 +990,7 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && to
     if (!token) throw new Error("Expired session");
     await api("heartbeat", {});
   } catch {
-    token = "";
-    try { sessionStorage.removeItem(sessionKey); } catch {}
-    page.replaceChildren(el("h1", {}, "This window has expired. Close it and open autohours again."));
-    footer.replaceChildren();
-    document.querySelector("#quit").disabled = true;
+    closedScreen(true);
     return;
   }
   heartbeat = setInterval(beat, 5000);

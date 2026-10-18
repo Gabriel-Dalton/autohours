@@ -6,6 +6,8 @@ First public release, with downloadable Windows and macOS apps.
 
 - Restyle the desktop app on the IBM Carbon design system with bundled IBM Plex Sans and Carbon icons, a centred layout that grows with the window, selectable tiles and subtle motion.
 - Exchange a one-time launch code for the session token so the token never appears in process arguments, and ignore disconnects when the window closes.
+- Give the app window a sharp icon and its own taskbar icon on Windows, smooth the packaged app icons, and size the window to the screen.
+- Restyle notifications without coloured side stripes, keep icons visible after the app closes, use specific error messages, and show a clear screen when the app has closed.
 - Make the one-line installers open the desktop app, falling back to terminal questions on Linux without a desktop.
 - Shorten the README for first-time users and move technical detail into `docs/` and `CONTRIBUTING.md`. Add `SECURITY.md`.
 - Replace the Tk window with a modern local web app using bundled HTML, CSS and vanilla JavaScript, with no new runtime dependency or build step.

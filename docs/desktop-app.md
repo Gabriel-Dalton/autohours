@@ -1,6 +1,10 @@
 # The desktop app
 
-Run `autohours` with no arguments, `autohours gui`, or open the downloaded app. See the [README](../README.md) for screenshots.
+Run `autohours` with no arguments, `autohours gui`, or open the downloaded app.
+
+| Welcome | Dark mode |
+| --- | --- |
+| ![Welcome screen listing what autohours does, with the detected time zone and a preview of activity becoming timesheet entries](images/welcome.png) | ![ActivityWatch screen in dark mode confirming ActivityWatch is running](images/activitywatch-dark.png) |
 
 The app opens as its own window using Edge or Chrome already on Windows. On macOS it uses Chrome, Edge or Brave; on Linux it uses an installed Chromium browser. If an app window is unavailable, it opens in your usual browser. The local address is also printed when a terminal is available. No browser download, npm or build step is needed.
 

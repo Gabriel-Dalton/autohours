@@ -503,6 +503,7 @@ def test_browser_discovery_and_flags(platform, executable, monkeypatch, tmp_path
     expected = Path(executable)
     monkeypatch.setattr(Path, "is_file", lambda path: path == expected)
     monkeypatch.setattr(webapp.shutil, "which", lambda name: executable if name == "chromium" else None)
+    monkeypatch.setattr(webapp, "screen_size", lambda: None)
     url = "http://127.0.0.1:12345/#synthetic-launch-token"
     command = webapp.browser_command(url, platform, {"ProgramFiles(x86)": "C:/Program Files (x86)", "ProgramFiles": "C:/Program Files"}, tmp_path / "window")
     assert command == [str(expected), "--app=" + url, "--user-data-dir=" + str(tmp_path / "window"),
@@ -677,6 +678,9 @@ def test_icon_generator_remains_independent_and_reproducible(tmp_path):
     module["generate"](tmp_path)
     for name in ("autohours.ico", "autohours.icns"):
         assert (tmp_path / name).read_bytes() == (root / "packaging" / name).read_bytes()
+    module["generate_web"](tmp_path)
+    for name in ("favicon.svg", "favicon-256.png", "autohours.ico"):
+        assert (tmp_path / name).read_bytes() == (root / "src/autohours/web" / name).read_bytes()
 
 
 def test_launch_without_window_only_prints_address(server_factory, monkeypatch, capsys):
@@ -690,3 +694,9 @@ def test_launch_without_window_only_prints_address(server_factory, monkeypatch, 
     monkeypatch.setattr(webapp, "open_window", opened.append)
     assert webapp.launch() == 0
     assert server.url in capsys.readouterr().out and opened == []
+
+
+@pytest.mark.parametrize("screen, expected", [(None, (1100, 780)), ((2560, 1440), (1600, 1100)),
+    ((1920, 1080), (1344, 864)), ((1366, 768), (1100, 688)), ((1280, 720), (1100, 640))])
+def test_window_grows_with_the_screen_but_fits_on_it(screen, expected):
+    assert webapp.window_size(screen) == expected

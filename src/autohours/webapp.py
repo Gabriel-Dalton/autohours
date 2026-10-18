@@ -21,7 +21,7 @@ from urllib.parse import parse_qs, quote, unquote, urlsplit
 import webbrowser
 from zoneinfo import ZoneInfo, available_timezones
 
-from . import desktop, runlog, schedule, setup
+from . import desktop, runlog, schedule, setup, taskbar
 from .config import user_config_dir
 from .credentials import read_key
 from .models import UserError
@@ -36,6 +36,8 @@ STATIC = {"/": ("index.html", "text/html; charset=utf-8"),
           "/app.css": ("app.css", "text/css; charset=utf-8"),
           "/app.js": ("app.js", "text/javascript; charset=utf-8"),
           "/icons.svg": ("icons.svg", "image/svg+xml"),
+          "/favicon.svg": ("favicon.svg", "image/svg+xml"),
+          "/favicon-256.png": ("favicon-256.png", "image/png"),
           "/fonts/IBMPlexSans-Regular.woff2": ("fonts/IBMPlexSans-Regular.woff2", "font/woff2"),
           "/fonts/IBMPlexSans-SemiBold.woff2": ("fonts/IBMPlexSans-SemiBold.woff2", "font/woff2")}
 
@@ -62,6 +64,27 @@ def text_field(data, field, message):
     return value.strip()
 
 
+def screen_size():
+    """The main screen in scaled pixels on Windows, or None where it is not cheaply known."""
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        return user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+    except (AttributeError, OSError):
+        return None
+
+
+def window_size(screen):
+    """Open larger on larger screens, but never bigger than the screen itself."""
+    if not screen or min(screen) <= 0:
+        return 1100, 780
+    width, height = screen
+    return (min(max(round(width * .7), 1100), 1600, width - 80),
+            min(max(round(height * .8), 780), 1100, height - 80))
+
+
 def browser_command(url, platform=None, environment=None, directory=None):
     """Discover a browser without starting it; useful for offline launch tests."""
     platform = platform or sys.platform
@@ -83,7 +106,8 @@ def browser_command(url, platform=None, environment=None, directory=None):
     browser = next((path for path in candidates if path.is_file()), None)
     if browser:
         return [str(browser), "--app=" + url, "--user-data-dir=" + str(directory),
-                "--window-size=1100,780", "--no-first-run", "--no-default-browser-check"]
+                "--window-size=%d,%d" % window_size(screen_size() if platform == sys.platform else None),
+                "--no-first-run", "--no-default-browser-check"]
     return ["open", url] if platform == "darwin" else None
 
 
@@ -721,6 +745,7 @@ def launch(explicit=None):
             print("Open autohours: " + server.url, flush=True)
         if not os.environ.get("AUTOHOURS_NO_WINDOW"):
             open_window(server.url)
+            taskbar.label_in_background()
         try:
             server.serve_forever()
         except KeyboardInterrupt:
