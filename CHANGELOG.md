@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Line up the Add button and the Yesterday and Today buttons with the fields beside them, and the "per hour in" label with the rate fields, at every window size.
+- Keep each screen's heading aligned with the step bar and at the same height from step to step, so the page no longer jumps while Clockify connects.
+- Show the Clockify rate check in plain English, hide Update Clockify when nothing would change, and list only the confirmed results afterwards.
+- Keep the write confirmation short, with the full technical preview behind "Show the full preview".
+- Clear the "Open ActivityWatch" error as soon as ActivityWatch is detected.
+
 ## 1.0.2
 
 The 1.0.1 downloads were never published, so 1.0.2 includes everything since 1.0.0.

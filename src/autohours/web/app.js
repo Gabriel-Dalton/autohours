@@ -361,6 +361,7 @@ function activityWatch() {
       if (generation !== current) return;
       if (hostname !== checkedHostname || web.querySelector("input").checked !== useWeb) { recheck = true; return; }
       running = result.running;
+      if (running && toast.querySelector(".notification.error")) notice("");
       status.replaceChildren(notification(running ? "success" : "info", running ? "ActivityWatch is running" : "Waiting for ActivityWatch",
         running ? "Recording apps and time away on this computer." : result.message));
       if (!running) status.append(el("small", {class: "busy"}, "Checking..."));
