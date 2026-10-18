@@ -9,7 +9,7 @@ const toast = document.querySelector("#toast");
 let state, step = "welcome", editing = false, generation = 0, awTimer;
 let projects = [], items = [], remote = [], selected = 0, activitySearch = "", activityExpanded = false;
 let projectQueue = Promise.resolve(), projectFailure = null, projectRevision = 0;
-let primary, keyConnected = false, singleWorkspace = false;
+let primary, keyConnected = false, singleWorkspace = false, editChanged = false;
 let beforeStepBack = () => {};
 // Explicit local references keep the sprite contract auditable without a build step.
 const iconPaths = {
@@ -288,7 +288,7 @@ function screen(name, title, subtitle) {
   void page.offsetWidth;
   page.classList.add("page-enter");
   footer.replaceChildren(); primary = null;
-  const steps = ["welcome", "activitywatch", "destination", ...(state?.destination.type === "clockify" ? ["connect", ...(!singleWorkspace ? ["workspace"] : [])] : []), "projects", "billing", "finish"];
+  const steps = ["welcome", "activitywatch", "destination", ...(state?.destination.type === "clockify" ? ["connect", ...(keyConnected && !singleWorkspace ? ["workspace"] : [])] : []), "projects", "billing", "finish"];
   const index = steps.indexOf(name);
   const labels = {welcome: "Welcome", activitywatch: "ActivityWatch", destination: "Destination", connect: "Connect", workspace: "Workspace", projects: "Projects", billing: "Billing", finish: "Finish"};
   const routes = {welcome, activitywatch: activityWatch, destination, connect, workspace, projects: projectsScreen, billing, finish};
@@ -367,7 +367,7 @@ function activityWatch() {
       if (!running) status.append(el("small", {class: "busy"}, "Checking..."));
       download.hidden = running || result.hosts.length > 0;
       hostname = result.hostname || hostname;
-      const hosts = result.hosts.map(h => [h, h, "Recording apps and time away on this computer.", "document"]);
+      const hosts = result.hosts.map(h => [h, h, "Recorded by ActivityWatch", "document"]);
       // Keep radio nodes (and keyboard focus) stable during polling and selection.
       if (JSON.stringify(result.hosts) !== hostBox.dataset.hosts) {
         hostBox.dataset.hosts = JSON.stringify(result.hosts);
@@ -387,7 +387,7 @@ function activityWatch() {
   }
   foot("Continue", async () => {
     await check();
-    if (!running) throw new Error("Open ActivityWatch and let it record your apps and time away before continuing.");
+    if (!running) throw new Error(!hostBox.hidden && !hostBox.querySelector("input:checked") ? "Choose the computer you use for work." : "Open ActivityWatch and let it record your apps and time away before continuing.");
     destination();
   }, welcome);
   check();
@@ -493,6 +493,7 @@ function saveProjects(validate = false) {
   projectQueue = projectQueue.catch(() => {}).then(async () => {
     const submitted = [...projects];
     const result = await api("projects", {projects: submitted, validate});
+    if (editing) editChanged = true;
     submitted.forEach((p, i) => { p.id = result.projects[i].id; });
     projectFailure = null;
     if (revision === projectRevision) updateCoverage(result.coverage);
@@ -623,7 +624,8 @@ async function projectsScreen() {
   screen("projects", "What do you work on?", "Add a client or project, then pick the activity that belongs to it.");
   if (state.workspace_name) page.append(el("small", {class: "workspace-note"}, `Using ${state.workspace_name} in Clockify.`));
   const current = generation;
-  const back = editing ? cancelEdit : state.destination.type === "clockify" ? (singleWorkspace ? connect : workspace) : destination;
+  const back = editing ? () => editChanged ? confirmation(page, "Leave without saving?", "Your project changes are saved when you continue to billing and choose Save and continue.", "Discard changes", cancelEdit) : cancelEdit()
+    : state.destination.type === "clockify" ? (singleWorkspace ? connect : workspace) : destination;
   let ready = false;
   const add = async () => {
     await activityReady;
@@ -707,7 +709,7 @@ function billing() {
     const roundUp = toggle("Always round up", `up-${i}`, a.rounding === "up");
     roundUp.hidden = quantum === "0";
     const roundingQuestion = choices("Round each entry", `round_to_minutes-${i}`, roundingOptions, quantum, v => { roundUp.hidden = v === "0"; }, true,
-      "Use the closest interval, or choose to always round up.");
+      "Use the closest interval, or choose to always round up. An entry that runs straight into the next one is not rounded past it.");
     roundingQuestion.append(roundUp);
     group.append(roundingQuestion,
       el("details", {}, el("summary", {}, "More options"), field("Monthly cap in hours", `monthly_cap_hours-${i}`, a.monthly_cap_hours ?? "", "number", {min: "0", step: "any"})));
@@ -822,7 +824,7 @@ function reviewCard(initialDay, fallback = false) {
         results.append(el("div", {class: "table-scroll", tabindex: "0", role: "region", "aria-label": "Timesheet entries, scroll to see all columns"}, table));
       }
       if (result.unmatched_minutes > 0) results.append(el("p", {class: "review-note"}, `${duration(result.unmatched_minutes)} of activity did not match a project. `,
-        button("Assign it", async () => { editing = true; await projectsScreen(); }, "text-button")));
+        button("Assign it", async () => { editing = true; editChanged = false; await projectsScreen(); }, "text-button")));
       if (result.short_piece_minutes > 0) results.append(el("p", {class: "review-note"}, `${duration(result.short_piece_minutes)} was in pieces too short to bill (under ${result.minimum_minutes} min).`));
       results.append(el("details", {}, el("summary", {}, "How is this worked out?"),
         el("p", {}, "Rounding and monthly limits can change totals. Confirmed offline work is included."),
@@ -927,7 +929,7 @@ async function home() {
     return node;
   }
   page.append(el("div", {class: "tiles"},
-    tile("Projects and billing", "Match activity and manage agreements", el("small", {class: "tile-state"}, `${state.projects.length} ${state.projects.length === 1 ? "project" : "projects"}, ${kinds}`), "folder", async () => { editing = true; await projectsScreen(); }),
+    tile("Projects and billing", "Match activity and manage agreements", el("small", {class: "tile-state"}, `${state.projects.length} ${state.projects.length === 1 ? "project" : "projects"}, ${kinds}`), "folder", async () => { editing = true; editChanged = false; await projectsScreen(); }),
     tile("Every morning", "Set up automatic daily writes", el("small", {id: "morning-state", class: "tile-state"}, state.schedule), "time", () => { morning.hidden = !morning.hidden; if (!morning.hidden) { morning.scrollIntoView({block: "start"}); morning.querySelector("input").focus({preventScroll: true}); } }),
     tile("Settings file", "Open in your text editor", el("small", {class: "tile-state"}, "Saved on this computer"), "document", async () => { await api("settings/open", {}); notice("Your settings file opened in your default editor."); }),
     tile("Run setup again", "Start over with new answers", el("small", {class: "tile-state"}, "Review before saving"), "renew", () => { editing = false; welcome(); })), morning);
@@ -946,10 +948,10 @@ document.querySelector("#brand").addEventListener("click", e => {
 document.querySelector("#quit").addEventListener("click", () => {
   confirmation(page, "Close autohours?", "Unsaved setup answers will be lost. Saved settings and completed writes stay on this computer.", "Close app", async () => {
     await api("quit", {});
-    closedScreen(); window.close();
+    closedScreen(false, true); window.close();
   });
 });
-function closedScreen(expired = false) {
+function closedScreen(expired = false, quit = false) {
   if (disconnected) return;
   disconnected = true; token = ""; generation++;
   clearInterval(heartbeat); clearTimeout(awTimer);
@@ -968,8 +970,9 @@ function closedScreen(expired = false) {
   const heading = el("h1", {tabindex: "-1"}, expired ? "This window has expired" : "autohours has closed");
   page.replaceChildren(el("section", {class: "closed-state"}, icon("time", 24), heading,
     el("p", {}, expired ? "This window no longer has an active autohours session. Your saved settings are safe." :
+      quit ? "Your saved settings are safe on this computer." :
       "This window lost its connection, usually because autohours was closed or the computer went to sleep. Your saved settings are safe."),
-    el("p", {}, "Close this window and open autohours again to carry on.")));
+    el("p", {}, quit ? "You can close this window. Open autohours again whenever you need it." : "Close this window and open autohours again to carry on.")));
   heading.focus();
 }
 async function beat() {

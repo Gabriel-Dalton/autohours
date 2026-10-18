@@ -77,6 +77,18 @@ curl -fsSL https://raw.githubusercontent.com/Gabriel-Dalton/autohours/main/insta
 - No account, no tracking, no cloud service.
 - Nothing is saved until you confirm it, and existing entries are never changed or deleted.
 
+## Known limitations
+
+autohours is used every day on Windows with Clockify. Some setups have not been tried by a real person yet:
+
+- **Mac.** The Mac apps are built and checked automatically on every release, but no one has run them on a real Mac yet.
+- **Linux.** It runs from a terminal, and the desktop app opens in a Chromium browser, but it has had little real use.
+- **Large Clockify workspaces** with many people or hundreds of projects. It has been tested on a personal workspace.
+- **Only Clockify and spreadsheets.** Other time trackers such as Toggl or Harvest are not supported yet.
+- **Only work on this computer.** It cannot see calls on your phone or work away from your desk; add that time by hand.
+
+If you use one of these setups, please try it and [open an issue](https://github.com/Gabriel-Dalton/autohours/issues) saying what worked and what did not. Fixes and new destinations are welcome too; see [Contributing](CONTRIBUTING.md) and [adding a destination](docs/adding-a-destination.md).
+
 ## Questions
 
 **Does it cost anything?** No. autohours and ActivityWatch are free, and Clockify's free plan is enough.

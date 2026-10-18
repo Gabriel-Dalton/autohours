@@ -7,6 +7,12 @@
 - Show the Clockify rate check in plain English, hide Update Clockify when nothing would change, and list only the confirmed results afterwards.
 - Keep the write confirmation short, with the full technical preview behind "Show the full preview".
 - Clear the "Open ActivityWatch" error as soon as ActivityWatch is detected.
+- Show the Workspace step only when you have more than one Clockify workspace, so the step count no longer changes after connecting.
+- When ActivityWatch has more than one computer, ask you to choose one instead of saying ActivityWatch is not open.
+- Ask before discarding project changes when you go back from editing projects on Home.
+- Explain on the billing screen that rounding never runs into the next entry.
+- Make the screen after Close app say the app closed as asked, instead of describing a lost connection.
+- Add a Known limitations section to the README.
 
 ## 1.0.2
 
