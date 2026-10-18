@@ -5,15 +5,17 @@
 
 **Your timesheet, filled in from what you actually worked on.**
 
+Time trackers like Clockify only work if you remember to press start when you begin, and stop when you switch clients or step away. Miss either and your hours are wrong, so you end up rebuilding the week from memory.
+
 autohours looks at what you did on your computer, works out which client each piece belongs to, leaves out the time you were away, and fills in your timesheet in Clockify or a spreadsheet. You check it before anything is saved.
 
-https://github.com/user-attachments/assets/2ee469a5-3cc5-4763-b46c-5b0ef9df6706
+https://github.com/user-attachments/assets/e6f100f4-d70b-40d9-99c3-f4be352aeb0c
 
 ![The autohours home screen showing a day of timesheet entries for two clients, with totals for time, entries and amount](docs/images/review.png)
 
 ## Who it's for
 
-- **Contractors and freelancers** who bill by the hour and would rather not start and stop timers all day.
+- **Contractors and freelancers** who bill by the hour and would rather not press start and stop on a time tracker all day.
 - **Part-timers and people with more than one job**, where each client is billed differently: one hourly, one on a flat fee, one where short breaks count and calls are rounded up.
 - **Anyone who forgets to track time** and rebuilds the week from memory on Friday.
 
@@ -31,7 +33,7 @@ https://github.com/user-attachments/assets/2ee469a5-3cc5-4763-b46c-5b0ef9df6706
 
 | Pick what you work on | Say how you bill each client |
 | --- | --- |
-| ![Projects screen: two clients as tabs and last week's apps and windows with hours, some assigned to each client](docs/images/projects.png) | ![Billing screen: hourly billing selected with a rate of 120 USD and short breaks counted up to 10 minutes](docs/images/billing.png) |
+| ![Projects screen: two clients as tabs and last week's apps and windows with hours, some assigned to each client](docs/images/projects.png) | ![Billing screen: hourly billing selected with a rate of 120 CAD and short breaks counted up to 10 minutes](docs/images/billing.png) |
 
 Screenshots use made-up demo data.
 
