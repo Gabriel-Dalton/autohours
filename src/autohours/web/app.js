@@ -7,7 +7,7 @@ const page = document.querySelector("#page");
 const footer = document.querySelector("#footer");
 const toast = document.querySelector("#toast");
 let state, step = "welcome", editing = false, generation = 0, awTimer;
-let projects = [], items = [], remote = [], selected = 0, activitySearch = "";
+let projects = [], items = [], remote = [], selected = 0, activitySearch = "", activityExpanded = false;
 let projectQueue = Promise.resolve(), projectFailure = null, projectRevision = 0;
 let primary, keyConnected = false, singleWorkspace = false;
 // Explicit local references keep the sprite contract auditable without a build step.
@@ -104,7 +104,7 @@ function notice(message, failure = false) {
 }
 function clearErrors() {
   page.querySelectorAll("[aria-invalid]").forEach(clearFieldError);
-  page.querySelectorAll(".error").forEach(n => n.remove());
+  page.querySelectorAll(".error:not(.notification)").forEach(n => n.remove());
   notice("");
 }
 function clearFieldError(field) {
@@ -182,7 +182,7 @@ function toggle(label, id, checked = false, change = () => {}) {
     for (const [key, val] of Object.entries(attrs)) shape.setAttribute(key, val);
     drawing.append(shape);
   }
-  return el("label", {class: "toggle", for: id}, el("span", {class: "toggle-label"}, label),
+  return el("label", {class: "toggle", for: id}, label ? el("span", {class: "toggle-label"}, label) : null,
     el("span", {class: "toggle-control"}, input, el("span", {class: "toggle-track", "aria-hidden": "true"}, drawing),
       el("span", {class: "toggle-on", "aria-hidden": "true"}, "On"), el("span", {class: "toggle-off", "aria-hidden": "true"}, "Off")));
 }
@@ -401,13 +401,22 @@ function saveProjects(validate = false) {
   }).catch(error => { projectFailure = error; showError(error); if (validate) throw error; });
   return projectQueue;
 }
+function activityPage(allItems, search, expanded) {
+  const matches = allItems.filter(item => item.name.toLowerCase().includes(search.toLowerCase()));
+  return {visible: expanded ? matches : matches.slice(0, 12), total: matches.length};
+}
+function nightlyKind(summary) {
+  if (summary.startsWith("Not run yet.")) return "info";
+  return /: (wrote \d+ entries, .+|completed)\.$/.test(summary) ? "success" : "error";
+}
 function activityRows() {
   const list = document.querySelector("#activity-list");
   if (!list) return;
   const focused = list.contains(document.activeElement) ? document.activeElement.id : null;
   list.replaceChildren();
   const project = projects[selected];
-  for (const item of items.filter(item => item.name.toLowerCase().includes(activitySearch.toLowerCase()))) {
+  const {visible, total} = activityPage(items, activitySearch, activityExpanded);
+  for (const item of visible) {
     const input = el("input", {id: `activity-${item.id}`, type: "checkbox", "aria-label": `Assign ${item.name} to ${project?.name || "a project"}`});
     input.checked = !!project?.items.includes(item.id); input.disabled = !project;
     const badges = el("span", {class: "assigned-projects"});
@@ -429,6 +438,10 @@ function activityRows() {
     list.append(label);
   }
   if (!list.children.length) list.append(el("p", {class: "muted"}, "No activity matches your search."));
+  if (total > visible.length) list.append(button(`Show all ${total} items`, () => {
+    activityExpanded = true; activityRows();
+    document.getElementById(`activity-${activityPage(items, activitySearch, true).visible[12].id}`)?.focus({preventScroll: true});
+  }, "text-button"));
   if (focused) document.getElementById(focused)?.focus({preventScroll: true});
 }
 function closeProjectMenu(focus = false) {
@@ -540,7 +553,7 @@ async function projectsScreen() {
     state.currency = result.currency; state.workspace_name = result.workspace_name;
     selected = Math.min(selected, Math.max(0, projects.length - 1));
     const search = field("Search your activity", "activity-search", activitySearch, "search");
-    search.querySelector("input").addEventListener("input", e => { activitySearch = e.target.value; activityRows(); });
+    search.querySelector("input").addEventListener("input", e => { activitySearch = e.target.value; activityExpanded = false; activityRows(); });
     panel.append(el("h2", {}, "Your activity from the last 7 days"), search,
       el("small", {}, "Picking an app includes all time in that app. Pick a window title for work in a shared app."),
       el("div", {id: "activity-list", class: "activity-list"}),
@@ -558,37 +571,46 @@ async function projectsScreen() {
 }
 
 function billing() {
-  screen("billing", projects.length === 1 ? `How do you bill ${projects[0].name}?` : "How do you bill your projects?", "Use the agreement you have with each client. You can leave the hourly rate empty.");
+  screen("billing", projects.length === 1 ? `How do you bill ${projects[0].name}?` : "How do you bill your clients?", "Use the agreement you have with each client. You can leave the hourly rate empty.");
   projects.forEach((project, i) => {
     const a = project.agreement;
-    const group = card(project.name);
-    const rates = el("div", {class: "rate-row"}, field("Your rate", `rate-${i}`, a.rate ?? "", "number", {min: "0", step: "any"}),
+    const group = card(projects.length > 1 ? project.name : null);
+    group.classList.add("billing-group");
+    const rates = el("div", {class: "rate-row"}, field("Hourly rate", `rate-${i}`, a.rate ?? "", "number", {min: "0", step: "any"}),
       el("span", {class: "muted"}, "per hour in"), field("Currency", `currency-${i}`, a.currency || state.currency || "", "text", {maxlength: "3", placeholder: "For example, CAD"}));
     rates.hidden = a.billing !== "hourly";
-    group.append(choices("How do you bill this client?", `billing-${i}`, [
+    const billingQuestion = choices("How do you bill this client?", `billing-${i}`, [
       ["hourly", "By the hour", "Track time and an optional hourly amount", "time"],
       ["flat", "Flat monthly fee", "Track time covered by a fixed fee", "calendar"],
       ["retainer", "Retainer", "Track time within your agreement", "in-progress"],
       ["none", "Not billed", "Keep a record without billing", "close"]
     ], a.billing || "", v => { a.billing = v; rates.hidden = v !== "hourly"; }, false,
-    "Your rate can be added later. No rate is assumed."), rates);
+    "Your rate can be added later. No rate is assumed.");
+    billingQuestion.append(rates);
+    group.append(billingQuestion);
     const breaks = String(a.count_breaks_up_to_minutes ?? 0);
     const custom = field("Custom break limit in minutes", `count_breaks_up_to_minutes-${i}`, breaks, "number", {min: "0", max: "1440", step: "1"});
     custom.hidden = ["0", "5", "10", "15"].includes(breaks);
-    group.append(choices("Do short breaks count?", `breaks-${i}`, [["0", "No"], ["5", "5 min"], ["10", "10 min"], ["15", "15 min"], ["custom", "Custom"]], custom.hidden ? breaks : "custom", v => {
+    const breaksQuestion = choices("Do short breaks count?", `breaks-${i}`, [["0", "No"], ["5", "5 min"], ["10", "10 min"], ["15", "15 min"], ["custom", "Custom"]], custom.hidden ? breaks : "custom", v => {
       custom.hidden = v !== "custom";
       if (v !== "custom") custom.querySelector("input").value = v;
-    }, true, "The limit includes exactly that many minutes. Longer breaks stay out."), custom,
-    el("h3", {}, "Count calls when you step away from the keyboard?"),
-    el("small", {}, "A Zoom call with no typing can still count when it matches this project."),
-    toggle("Count calls while away", `calls-${i}`, a.count_calls_when_away || false));
+    }, true, "The limit includes exactly that many minutes. Longer breaks stay out.");
+    breaksQuestion.append(custom);
+    const calls = toggle("", `calls-${i}`, a.count_calls_when_away || false);
+    calls.querySelector("input").setAttribute("aria-labelledby", `calls-question-${i}`);
+    calls.querySelector("input").setAttribute("aria-describedby", `calls-help-${i}`);
+    group.append(breaksQuestion, el("fieldset", {},
+      el("legend", {id: `calls-question-${i}`}, "Count calls when you step away from the keyboard?"),
+      el("p", {id: `calls-help-${i}`, class: "question-help"}, "A Zoom call with no typing can still count when it matches this project."), calls));
     const quantum = String(a.round_to_minutes ?? 0);
     const roundingOptions = [["0", "No rounding"], ["6", "6 min"], ["15", "15 min"], ["30", "30 min"]];
     if (!roundingOptions.some(o => o[0] === quantum)) roundingOptions.push([quantum, `${quantum} min (saved)`]);
     const roundUp = toggle("Always round up", `up-${i}`, a.rounding === "up");
     roundUp.hidden = quantum === "0";
-    group.append(choices("Round each entry", `round_to_minutes-${i}`, roundingOptions, quantum, v => { roundUp.hidden = v === "0"; }, true,
-      "Use the closest interval, or choose to always round up."), roundUp,
+    const roundingQuestion = choices("Round each entry", `round_to_minutes-${i}`, roundingOptions, quantum, v => { roundUp.hidden = v === "0"; }, true,
+      "Use the closest interval, or choose to always round up.");
+    roundingQuestion.append(roundUp);
+    group.append(roundingQuestion,
       el("details", {}, el("summary", {}, "More options"), field("Monthly cap in hours", `monthly_cap_hours-${i}`, a.monthly_cap_hours ?? "", "number", {min: "0", step: "any"})));
     page.append(group);
   });
@@ -732,7 +754,7 @@ function scheduleCard() {
     } catch (error) { restore(); showError(error); }
     finally { input.disabled = timeInput.disabled = false; }
   }
-  const switchBox = toggle("Every morning", "nightly", enabled, checked => preview(checked));
+  const switchBox = toggle("Write yesterday's timesheet automatically", "nightly", enabled, checked => preview(checked));
   const input = switchBox.querySelector("input");
   timeInput.addEventListener("change", () => preview(true));
   section.append(el("div", {class: "schedule-row"}, switchBox, timeField),
@@ -774,7 +796,7 @@ async function home() {
   await projectQueue.catch(() => {});
   await refresh(); editing = false;
   screen("home", "Your timesheets", "Review your time, write timesheets and manage your settings.");
-  page.append(card("Last nightly run", el("p", {class: "muted"}, state.last_run)));
+  page.append(notification(nightlyKind(state.last_run), "Last nightly run", state.last_run));
   const review = reviewCard(state.yesterday); page.append(review.section);
   const morning = scheduleCard(); morning.hidden = true;
   const billingNames = {hourly: "hourly", flat: "flat fee", retainer: "retainer", none: "not billed"};

@@ -246,8 +246,17 @@ legend { padding: 0; }
 .segment:last-child { border: 0; }
 .segment:hover { background: var(--layer-hover-01); }
 .segment:has(input:checked) { background: var(--background-inverse); color: var(--text-inverse); }
-.rate-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--spacing-05); }
+.rate-row { display: flex; align-items: center; gap: var(--spacing-05); }
 .rate-row .field { flex: 1; min-width: 128px; }
+.billing-group > fieldset { margin: 0 0 var(--spacing-07); }
+.billing-group > fieldset > legend { font: var(--heading-02); letter-spacing: 0; color: var(--text-primary); margin-bottom: var(--spacing-03); }
+.billing-group .question-help { font: var(--body-01); color: var(--text-secondary); margin: 0; padding-bottom: var(--spacing-05); }
+.billing-group .choices { row-gap: 0; }
+.billing-group .choice:nth-of-type(n+3) { margin-top: var(--spacing-03); }
+.billing-group .rate-row { grid-column: 1 / -1; width: 100%; margin-top: var(--spacing-05); }
+.billing-group fieldset > .field, .billing-group fieldset > .toggle { width: 100%; margin: var(--spacing-05) 0 0; }
+.billing-group fieldset > .question-help + .toggle { margin-top: 0; }
+.billing-group .rate-row .field { margin-bottom: 0; }
 .project-tabs { display: flex; position: relative; margin-block: var(--spacing-06); }
 .tab-list { display: flex; flex: 1; min-width: 0; overflow-x: auto; }
 .project-tab { flex: 0 0 auto; min-height: 48px; padding: var(--spacing-04) var(--spacing-05); border: 0; border-top: 2px solid transparent; background: var(--layer-accent-01); color: var(--text-primary); }
@@ -308,8 +317,9 @@ summary:hover { background: var(--layer-01); }
 summary > .icon { transition: transform var(--duration-fast-01) var(--motion-productive); }
 details[open] > summary > .icon { transform: rotate(180deg); }
 details > :not(summary) { margin: var(--spacing-05); }
-.schedule-row { display: flex; flex-wrap: wrap; gap: var(--spacing-06); align-items: center; }
-.schedule-row .field { max-width: 224px; margin: 0; }
+.schedule-row { display: flex; gap: var(--spacing-06); align-items: flex-start; margin-bottom: var(--spacing-05); }
+.schedule-row .toggle { flex: 1; min-width: 0; margin: 0; }
+.schedule-row .field { flex: 0 1 160px; margin: 0; }
 .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-05); margin-block: var(--spacing-07); }
 .tiles button { display: flex; flex-direction: column; align-items: flex-start; gap: var(--spacing-03); padding: var(--spacing-05) var(--spacing-05) var(--spacing-09); height: auto; min-height: 160px; color: var(--text-primary); background: var(--layer-01); }
 .tiles button:hover { background: var(--layer-hover-01); }
@@ -333,6 +343,10 @@ details > :not(summary) { margin: var(--spacing-05); }
 @keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
 @keyframes page-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 671px) {
+  .rate-row { flex-direction: column; align-items: stretch; }
+  .rate-row > .muted { display: none; }
+  .rate-row .field { flex: auto; width: 100%; }
+  .billing-group .choice + .choice { margin-top: var(--spacing-03); }
   .setup-progress, main, .privacy-container { padding-inline: var(--spacing-05); }
   #progress-label { display: block; font: var(--label-01); margin-bottom: var(--spacing-05); }
   #progress li { justify-content: center; padding: var(--spacing-03) 0; }
