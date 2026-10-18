@@ -459,7 +459,8 @@ class Application:
         if route == ("GET", "/api/rates"):
             messages, failed = s.rates()
             self.rate_preview = (secrets.token_urlsafe(16), messages)
-            return {"messages": messages, "failed": failed, "preview": self.rate_preview[0]}
+            return {"messages": [plain_rate(m) for m in messages], "changes": any(" -> " in m for m in messages),
+                    "failed": failed, "preview": self.rate_preview[0]}
         if route == ("POST", "/api/rates/apply"):
             self.confirm(data, self.rate_preview[0] if self.rate_preview else None)
             if s.rates()[0] != self.rate_preview[1]:
@@ -467,7 +468,7 @@ class Application:
                 raise InputError("Clockify settings changed. Check the rate differences again before updating.")
             self.rate_preview = None
             messages, failed = s.rates(True)
-            return {"messages": messages, "failed": failed}
+            return {"messages": [plain_rate(m) for m in messages if " -> " not in m], "failed": failed}
         if route == ("GET", "/api/review"):
             return self.review(query.get("day", [""])[0])
         if route == ("POST", "/api/write/preview"):
@@ -737,6 +738,33 @@ class Handler(BaseHTTPRequestHandler):
         return data
 
     do_GET = do_POST = do_DELETE = do_HEAD = do_OPTIONS = handle_request
+
+
+def plain_rate(line):
+    """The rate check's command line wording, in the plain English the app uses."""
+    name, _, detail = line.partition(": ")
+    detail = detail.replace("/h", " per hour")
+    if " -> " in detail:
+        before, after = detail.rsplit(" -> ", 1)
+        if before.startswith("hourly rate "):
+            old = before.removeprefix("hourly rate ")
+            return f"{name}: hourly rate set to {after}" if old == "not set" else f"{name}: hourly rate changes from {old} to {after}"
+        return f"{name}: becomes {after}"
+    if detail == "rate not set; rate unchanged.":
+        return f"{name}: no hourly rate yet, so Clockify is left as it is."
+    if detail == "currency not set; rate unchanged.":
+        return f"{name}: no currency yet, so Clockify is left as it is."
+    found = re.fullmatch(r"workspace currency (\S+) differs from agreement (\S+); refusing to apply rate\.", detail)
+    if found:
+        return f"{name}: your Clockify workspace uses {found[1]} but this client is billed in {found[2]}, so the rate is not changed."
+    if detail.startswith("in sync"):
+        return f"{name}: already matches ({detail.removeprefix('in sync (').rstrip(')')})"
+    if detail.startswith("confirmed; "):
+        rest = detail.removeprefix("confirmed; ").replace("hourly rate=", "")
+        return f"{name}: updated and checked. {rest[:1].upper()}{rest[1:]}"
+    if detail.startswith("MISMATCH"):
+        return f"{name}: Clockify shows different values after the update. Check this project in Clockify."
+    return line
 
 
 def startup_alert(message):

@@ -280,7 +280,7 @@ function screen(name, title, subtitle) {
   const shell = document.querySelector("#app-shell");
   shell.dataset.screen = name;
   shell.dataset.layout = ["projects", "finish", "home", "welcome"].includes(name) ? "wide" : "readable";
-  shell.classList.toggle("short-screen", ["welcome", "activitywatch", "destination", "connect", "workspace"].includes(name));
+  shell.classList.toggle("short-screen", name === "welcome");
   document.querySelector(".welcome-preview")?.remove();
   page.replaceChildren(el("h1", {tabindex: "-1"}, title), el("p", {class: "subtitle"}, subtitle));
   page.classList.remove("page-enter");
@@ -737,11 +737,12 @@ function billing() {
   });
 }
 
-function confirmation(parent, title, text, approveLabel, action, cancel = () => {}) {
+function confirmation(parent, title, text, approveLabel, action, cancel = () => {}, details = "") {
   parent.querySelector(".confirmation")?.remove();
   const panel = el("section", {class: "confirmation notification warning", tabindex: "-1", "aria-label": title}, icon("warning--filled", 20));
   const content = el("div", {class: "notification-content"}, el("h3", {}, title));
   if (text) content.append(el("pre", {}, text));
+  if (details) content.append(el("details", {}, el("summary", {}, "Show the full preview"), el("pre", {}, details)));
   const trigger = document.activeElement;
   const restoreFocus = () => { if (trigger?.isConnected) trigger.focus(); };
   content.append(el("div", {class: "row wrap"}, button("Not now", () => { panel.remove(); cancel(); restoreFocus(); }, "secondary"),
@@ -762,12 +763,14 @@ function reviewCard(initialDay, fallback = false) {
     const target = state.destination.type === "clockify" ? "Clockify" : "your spreadsheet";
     if (!preview.count) { notice(`This day is already in ${target}. There is nothing new to write.`); return; }
     const entries = `${preview.count} ${preview.count === 1 ? "entry" : "entries"}`;
-    confirmation(section, `Write ${entries} (${duration(preview.hours * 60)}) to ${target}?`,
-      "The preview below checks existing entries and monthly limits. Already logged time is skipped.\n\n" + preview.text,
+    const skipped = Number((preview.text.match(/would skip (\d+)/) || [0, 0])[1]);
+    const summary = `Time already in ${target} is skipped, and monthly limits are checked.` +
+      (skipped ? ` ${skipped} ${skipped === 1 ? "entry is" : "entries are"} already logged and will be skipped.` : "");
+    confirmation(section, `Write ${entries} (${duration(preview.hours * 60)}) to ${target}?`, summary,
       `Write ${entries}`, async () => {
         const result = await api("write", {day: preview.day, confirm: true, preview: preview.preview});
         notice(result.message); reviewed = null; writeButton.disabled = true;
-      });
+      }, () => {}, preview.text);
   }, "primary");
   writeButton.disabled = true;
   const reportButton = button("Open full report", async () => { await api("review/open", {day}); notice("Your private report opened in your browser."); }, "text-button");
@@ -896,6 +899,7 @@ async function finish() {
     try {
       const result = await api("rates"); if (generation !== current) return;
       const text = Array.isArray(result.messages) ? result.messages.join("\n") : result.messages;
+      if (result.changes === false) { rates.replaceChildren(el("h2", {}, "Clockify rates"), el("pre", {}, text)); return; }
       rates.replaceChildren(el("h2", {}, "Clockify rates"), el("pre", {}, text), button("Update Clockify", () => {
         confirmation(rates, "Apply these exact changes to Clockify?", text, "Update Clockify", async () => {
           const updated = await api("rates/apply", {confirm: true, preview: result.preview});

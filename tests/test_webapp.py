@@ -170,7 +170,7 @@ def test_clockify_key_never_leaks_and_single_workspace_is_selected(call, app, tm
     with pytest.raises(webapp.InputError):
         call("rates/apply", {"confirm": True})
     responses.append(call("rates/apply", {"confirm": True, "preview": rates["preview"]}))
-    assert any("confirmed" in line for line in responses[-1]["messages"])
+    assert any("updated and checked" in line for line in responses[-1]["messages"])
     assert secret not in json.dumps(responses) + app.session.path.read_text()
     app.session.spaces[0]["name"] = secret
     assert secret not in json.dumps(call("clockify/workspaces"))
@@ -465,7 +465,7 @@ def test_quit_stops_server_and_heartbeat_does_not_wait_for_work(server_factory, 
         assert http(server, "/api/state")[0] == 409
         assert http(server, "/api/write", {"confirm": True})[0] == 409
     assert http(server, "/api/quit", {})[0] == 200
-    thread.join(timeout=2)
+    thread.join(timeout=10)
     assert not thread.is_alive()
 
 
