@@ -14,6 +14,8 @@ ActivityWatch on your computer
 
 autohours supports ActivityWatch, Clockify and CSV. Small source and destination interfaces leave room for future integrations such as Toggl and Harvest.
 
+![The autohours review screen showing a day of timesheet entries for two clients, with totals for time, entries and amount](docs/images/review.png)
+
 ## Quick start
 
 Choose the way that feels easiest:
@@ -76,12 +78,22 @@ The app opens as its own window using Edge or Chrome already on Windows. On macO
 
 The screens follow your system's light or dark appearance, fit narrow windows and larger text, and support keyboard navigation. Enter activates the main action. Errors appear beside the answer that needs fixing. There are no separate pop-up dialogs or sidebar.
 
+| Pick what you work on | Tell it how you bill |
+| --- | --- |
+| ![Projects screen: two clients as tabs and last week's apps and window titles with hours, some assigned to each client](docs/images/projects.png) | ![Billing screen: hourly billing selected with a rate of 120 USD and short breaks counted up to 10 minutes](docs/images/billing.png) |
+
+| Welcome | Dark mode |
+| --- | --- |
+| ![Welcome screen listing what autohours does, with the detected time zone](docs/images/welcome.png) | ![ActivityWatch screen in dark mode confirming ActivityWatch is running](docs/images/activitywatch-dark.png) |
+
+Screenshots use made-up demo data.
+
 1. **Welcome:** see what autohours does, confirm the detected time zone, or search for a different city.
 2. **ActivityWatch:** check that the free recorder is running. When it is stopped, download and open it; the app checks again automatically. Choose a computer only when several are available. Website matching is optional.
 3. **Where timesheets go:** choose Clockify or a spreadsheet file that opens in Excel, Numbers or Google Sheets. The suggested file is `Documents/autohours-timesheet.csv`.
 4. **Connect Clockify:** open your Clockify settings and paste the API key into the local password field, or use a saved key. It is stored using the same private storage as the text wizard and never returned to the page.
 5. **Workspace:** choose your Clockify workspace. A single workspace is selected automatically. Spreadsheet setup skips both Clockify screens.
-6. **Projects:** add clients or projects inline, pick a project pill, and tick apps, websites or titles from your last seven days. Search the list and see the percentage assigned. The project menu changes names, descriptions and order. Clockify projects can be selected or created when settings are saved.
+6. **Projects:** add clients or projects inline, pick a project tab, and tick apps, websites or titles from your last seven days. Search the list and see the percentage assigned. The project menu changes names, descriptions and order. Clockify projects can be selected or created when settings are saved.
 7. **Billing:** choose how each client is billed, then optional hourly rates and currency, short breaks, calls, rounding and monthly limits. There is no assumed billing type or rate. Clockify suggests the workspace currency; spreadsheet currency starts empty. Save and continue saves everything automatically.
 8. **Check and finish:** see connection checks, compare Clockify rates, and review yesterday (or today when yesterday is empty). Writing a day, updating Clockify rates and enabling morning writes each have a separate inline confirmation. Finish opens Home.
 
