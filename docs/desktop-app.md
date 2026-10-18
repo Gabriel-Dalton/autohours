@@ -8,7 +8,7 @@ Run `autohours` with no arguments, `autohours gui`, or open the downloaded app.
 
 The app opens as its own window using Edge or Chrome already on Windows. On macOS it uses Chrome, Edge or Brave; on Linux it uses an installed Chromium browser. If an app window is unavailable, it opens in your usual browser. The local address is also printed when a terminal is available. No browser download, npm or build step is needed.
 
-The screens follow your system's light or dark appearance, fit narrow windows and larger text, and support keyboard navigation. Enter activates the main action. Errors appear beside the answer that needs fixing. There are no separate pop-up dialogs or sidebar.
+The screens follow your system's light or dark appearance, fit narrow windows and larger text, and support keyboard navigation. Enter activates the main action. Errors appear beside the answer that needs fixing. There are no separate pop-up dialogs or sidebar. The window opens sized to your screen and the layout grows with it, up to a comfortable reading width. On Windows it shows the autohours icon in the taskbar. If autohours closes or the computer sleeps, the window says so and explains how to open it again; saved settings are never lost.
 
 1. **Welcome:** see what autohours does, confirm the detected time zone, or search for a different city.
 2. **ActivityWatch:** check that the free recorder is running. When it is stopped, download and open it; the app checks again automatically. Choose a computer only when several are available. Website matching is optional.

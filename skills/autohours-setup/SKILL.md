@@ -9,7 +9,7 @@ Install this skill by copying this entire `autohours-setup` folder into `~/.clau
 
 Prefer the desktop download or `autohours gui` for a person who has never used a terminal. The app opens with no arguments in its own local browser window, keeps titles local, and offers Back and a clear primary action on each screen. Otherwise use `autohours setup` in the user's own interactive terminal. Use `autohours setup --add-project` to add a project to an existing config. The wizard asks one question at a time, supports back and quit, creates escaped rules from numbered activity choices, and asks separately before external writes and scheduling. Do not enter or retrieve the user's API key through agent tools; let them use the hidden local prompt.
 
-If running an interactive wizard is impractical, follow its questions below and edit the config on the user's behalf. A non-technical user should never need to edit a file or write a regex. Use the README one-line installers for a new installation.
+If running an interactive wizard is impractical, follow its questions below and edit the config on the user's behalf. A non-technical user should never need to edit a file or write a regex. For a new installation, prefer the desktop download from the latest GitHub release, or the README one-line installers.
 
 Ask for their timezone, destination and intended projects in plain English. Preserve existing settings. Do not treat setup as permission to write timesheets or enable a schedule.
 
@@ -43,7 +43,7 @@ The app uses Edge or Chrome already on Windows, or an installed Chromium browser
 
 Confirm the detected time zone, then let the app check ActivityWatch automatically. The download link appears only when the recorder is unavailable. Choose a computer only when several are found. Website matching stays opt-in. Choose Clockify or a spreadsheet file; spreadsheet setup skips the key and workspace screens. Use the masked local key entry or a saved key, never chat. A single Clockify workspace is selected automatically.
 
-Add a client or project in the inline field. Select its pill and tick actual activity items. Each picked item belongs to one project; the coverage percentage counts unique active time instead of adding overlapping categories. Use the project menu for names, descriptions, ordering and removal. When broad existing matches overlap, the first project wins. For Clockify, choose an existing project or explicitly choose to create one when saving.
+Add a client or project in the inline field. Select its tab and tick actual activity items. Each picked item belongs to one project; the coverage percentage counts unique active time instead of adding overlapping categories. Use the project menu for names, descriptions, ordering and removal. When broad existing matches overlap, the first project wins. For Clockify, choose an existing project or explicitly choose to create one when saving.
 
 Confirm the required billing type and optional rate, currency, breaks, calls, rounding and cap. No rate is assumed. The local app can suggest the verified workspace currency; spreadsheet currency starts empty. Save and continue automatically saves settings, then shows checks and a review. Applying Clockify rates shows exact differences for separate approval and checks readback. Writing a day shows a destination-aware preview and asks inline before writing. Enable morning writes only after separate approval of the exact schedule.
 
