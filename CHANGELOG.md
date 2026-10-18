@@ -1,7 +1,13 @@
 # Changelog
 
-## 0.4.0
+## 1.0.0
 
+First public release, with downloadable Windows and macOS apps.
+
+- Restyle the desktop app on the IBM Carbon design system with bundled IBM Plex Sans and Carbon icons, a centred layout that grows with the window, selectable tiles and subtle motion.
+- Exchange a one-time launch code for the session token so the token never appears in process arguments, and ignore disconnects when the window closes.
+- Make the one-line installers open the desktop app, falling back to terminal questions on Linux without a desktop.
+- Shorten the README for first-time users and move technical detail into `docs/` and `CONTRIBUTING.md`. Add `SECURITY.md`.
 - Replace the Tk window with a modern local web app using bundled HTML, CSS and vanilla JavaScript, with no new runtime dependency or build step.
 - Open an app window in an installed browser, with a regular browser fallback and a printed local address.
 - Protect the loopback server with per-launch tokens, exact Host and Origin checks, security headers, an allowlisted static route table and heartbeat shutdown.

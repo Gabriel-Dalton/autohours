@@ -2,6 +2,8 @@ name: Draft desktop release
 on:
   push:
     tags: ['v*']
+  # Manual runs build and smoke test without creating a release.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,7 +13,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            asset: autohours-windows.exe
+          - os: macos-latest
+            asset: autohours-macos-apple-silicon.zip
+          - os: macos-15-intel
+            asset: autohours-macos-intel.zip
     runs-on: ${{ matrix.os }}
     env:
       PYTHONDONTWRITEBYTECODE: '1'
@@ -36,20 +44,31 @@ jobs:
       - name: Package Windows executable
         if: runner.os == 'Windows'
         shell: bash
-        run: cp "$RUNNER_TEMP/autohours-dist/autohours.exe" "$RUNNER_TEMP/autohours-windows.exe"
+        run: cp "$RUNNER_TEMP/autohours-dist/autohours.exe" "$RUNNER_TEMP/${{ matrix.asset }}"
+      - name: Smoke test the macOS application
+        if: runner.os == 'macOS'
+        run: |
+          python -m pip install playwright
+          python -m playwright install chromium
+          python -B packaging/smoke.py "$RUNNER_TEMP/smoke" "$RUNNER_TEMP/autohours-dist/autohours.app/Contents/MacOS/autohours"
       - name: Package macOS application
         if: runner.os == 'macOS'
-        run: ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/autohours-dist/autohours.app" "$RUNNER_TEMP/autohours-macos.zip"
+        run: ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/autohours-dist/autohours.app" "$RUNNER_TEMP/${{ matrix.asset }}"
       - uses: actions/upload-artifact@v4
         with:
-          name: desktop-${{ runner.os }}
-          path: |
-            ${{ runner.temp }}/autohours-windows.exe
-            ${{ runner.temp }}/autohours-macos.zip
+          name: desktop-${{ matrix.os }}
+          path: ${{ runner.temp }}/${{ matrix.asset }}
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always() && runner.os == 'macOS'
+        with:
+          name: smoke-screenshots-${{ matrix.os }}
+          path: ${{ runner.temp }}/smoke
+          if-no-files-found: ignore
 
   draft:
     needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -71,4 +90,4 @@ jobs:
           else
             gh release create "$RELEASE_TAG" --draft --verify-tag --title "autohours $RELEASE_TAG" --generate-notes
           fi
-          gh release upload "$RELEASE_TAG" "$RUNNER_TEMP/release/autohours-windows.exe" "$RUNNER_TEMP/release/autohours-macos.zip" --clobber
+          gh release upload "$RELEASE_TAG" "$RUNNER_TEMP"/release/autohours-* --clobber

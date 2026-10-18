@@ -60,9 +60,10 @@
         if ($LASTEXITCODE -ne 0 -or -not $autohoursBin) { throw 'Could not find the pipx programs folder. Open a new terminal and run autohours setup.' }
         $autohoursCommand = Join-Path $autohoursBin.Trim() 'autohours.exe'
         if (-not (Test-Path -LiteralPath $autohoursCommand)) { throw 'autohours was not found after installation. Check the pipx messages above.' }
-        Write-Host 'Installation complete. Starting the question-by-question setup...'
-        & $autohoursCommand setup
-        if ($LASTEXITCODE -ne 0) { throw 'Setup needs attention. Follow the message above, then run autohours setup again.' }
+        Write-Host 'Installation complete. Opening the autohours window, which walks you through setup.'
+        Write-Host 'Prefer questions in this terminal? Close the window and run: autohours setup'
+        & $autohoursCommand
+        if ($LASTEXITCODE -ne 0) { throw 'The window needs attention. Follow the message above, or run autohours setup for terminal questions.' }
     } catch {
         Write-Host ('autohours stopped: ' + $_.Exception.Message)
     }

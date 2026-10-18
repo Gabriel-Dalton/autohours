@@ -33,8 +33,14 @@ autohours_install() (
     pipx_run install git+https://github.com/Gabriel-Dalton/autohours --python "$(command -v python3)" --force || fail 'Installation failed. Check your connection and the messages above, then try again.'
     autohours_bin=$(pipx_run environment --value PIPX_BIN_DIR) || fail 'Could not find the pipx programs folder.'
     [ -x "$autohours_bin/autohours" ] || fail 'autohours was not found after installation. Check the pipx messages above.'
-    printf '%s\n' 'Installation complete. Starting the question-by-question setup...'
-    # curl | sh owns stdin. Read questions and hidden input from the terminal instead.
-    "$autohours_bin/autohours" setup </dev/tty || fail 'Setup needs attention. Run autohours setup in an interactive terminal to continue.'
+    if [ "$(uname -s)" = Darwin ] || [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
+        printf '%s\n' 'Installation complete. Opening the autohours window, which walks you through setup.'
+        printf '%s\n' 'Prefer questions in this terminal? Close the window and run: autohours setup'
+        "$autohours_bin/autohours" </dev/null || fail 'The window needs attention. Run autohours setup for terminal questions.'
+    else
+        printf '%s\n' 'Installation complete. No desktop found, so starting the question-by-question setup...'
+        # curl | sh owns stdin. Read questions and hidden input from the terminal instead.
+        "$autohours_bin/autohours" setup </dev/tty || fail 'Setup needs attention. Run autohours setup in an interactive terminal to continue.'
+    fi
 )
 autohours_install

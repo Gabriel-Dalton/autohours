@@ -392,6 +392,7 @@ def test_server_errors_are_silent_or_privately_logged(server_factory, kind, caps
 
 def test_launch_and_error_logs_never_expose_token(server_factory, monkeypatch, capsys, tmp_path):
     server, _ = server_factory()
+    monkeypatch.delenv("AUTOHOURS_NO_WINDOW", raising=False)
     server.shutdown()
     monkeypatch.setattr(webapp, "Server", lambda session: server)
     monkeypatch.setattr(webapp.desktop, "Session", lambda explicit: server.app.session)
@@ -676,3 +677,16 @@ def test_icon_generator_remains_independent_and_reproducible(tmp_path):
     module["generate"](tmp_path)
     for name in ("autohours.ico", "autohours.icns"):
         assert (tmp_path / name).read_bytes() == (root / "packaging" / name).read_bytes()
+
+
+def test_launch_without_window_only_prints_address(server_factory, monkeypatch, capsys):
+    server, _ = server_factory()
+    server.shutdown()
+    monkeypatch.setenv("AUTOHOURS_NO_WINDOW", "1")
+    monkeypatch.setattr(webapp, "Server", lambda session: server)
+    monkeypatch.setattr(webapp.desktop, "Session", lambda explicit: server.app.session)
+    monkeypatch.setattr(server, "serve_forever", lambda: None)
+    opened = []
+    monkeypatch.setattr(webapp, "open_window", opened.append)
+    assert webapp.launch() == 0
+    assert server.url in capsys.readouterr().out and opened == []

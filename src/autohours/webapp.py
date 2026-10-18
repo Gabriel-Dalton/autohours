@@ -719,7 +719,8 @@ def launch(explicit=None):
     with server:
         if sys.stdout is not None:
             print("Open autohours: " + server.url, flush=True)
-        open_window(server.url)
+        if not os.environ.get("AUTOHOURS_NO_WINDOW"):
+            open_window(server.url)
         try:
             server.serve_forever()
         except KeyboardInterrupt:
