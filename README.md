@@ -61,7 +61,7 @@ Windows (PowerShell):
 irm https://raw.githubusercontent.com/Gabriel-Dalton/autohours/main/install.ps1 | iex
 ```
 
-Mac and Linux:
+Mac:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Gabriel-Dalton/autohours/main/install.sh | sh
@@ -81,8 +81,8 @@ curl -fsSL https://raw.githubusercontent.com/Gabriel-Dalton/autohours/main/insta
 
 autohours is used every day on Windows with Clockify. Some setups have not been tried by a real person yet:
 
-- **Mac.** The Mac apps are built and checked automatically on every release, but no one has run them on a real Mac yet.
-- **Linux.** It runs from a terminal, and the desktop app opens in a Chromium browser, but it has had little real use.
+- **Mac (experimental).** The Mac apps are built and checked automatically on every release, but no one has run them on a real Mac yet.
+- **Linux is not supported.** There is no Linux download and none is planned. The automated tests run on Linux, so it may work from a terminal, but nobody uses it there.
 - **Large Clockify workspaces** with many people or hundreds of projects. It has been tested on a personal workspace.
 - **Only Clockify and spreadsheets.** Other time trackers such as Toggl or Harvest are not supported yet.
 - **Only work on this computer.** It cannot see calls on your phone or work away from your desk; add that time by hand.
