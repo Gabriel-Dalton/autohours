@@ -7,6 +7,8 @@
 
 autohours looks at what you did on your computer, works out which client each piece belongs to, leaves out the time you were away, and fills in your timesheet in Clockify or a spreadsheet. You check it before anything is saved.
 
+https://github.com/user-attachments/assets/2ee469a5-3cc5-4763-b46c-5b0ef9df6706
+
 ![The autohours home screen showing a day of timesheet entries for two clients, with totals for time, entries and amount](docs/images/review.png)
 
 ## Who it's for
