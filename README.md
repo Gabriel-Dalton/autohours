@@ -9,7 +9,7 @@ Time trackers like Clockify only work if you remember to press start when you be
 
 autohours looks at what you did on your computer, works out which client each piece belongs to, leaves out the time you were away, and fills in your timesheet in Clockify or a spreadsheet. You check it before anything is saved.
 
-https://github.com/user-attachments/assets/e6f100f4-d70b-40d9-99c3-f4be352aeb0c
+https://github.com/user-attachments/assets/870e3923-da51-4687-8dcd-2c481f40b9cf
 
 ![The autohours home screen showing a day of timesheet entries for two clients, with totals for time, entries and amount](docs/images/review.png)
 
