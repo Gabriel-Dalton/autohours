@@ -459,7 +459,7 @@ class Application:
         if route == ("GET", "/api/rates"):
             messages, failed = s.rates()
             self.rate_preview = (secrets.token_urlsafe(16), messages)
-            return {"messages": [plain_rate(m) for m in messages], "changes": any(" -> " in m for m in messages),
+            return {"messages": plain_rates(messages), "changes": any(" -> " in m for m in messages),
                     "failed": failed, "preview": self.rate_preview[0]}
         if route == ("POST", "/api/rates/apply"):
             self.confirm(data, self.rate_preview[0] if self.rate_preview else None)
@@ -468,7 +468,7 @@ class Application:
                 raise InputError("Clockify settings changed. Check the rate differences again before updating.")
             self.rate_preview = None
             messages, failed = s.rates(True)
-            return {"messages": [plain_rate(m) for m in messages if " -> " not in m], "failed": failed}
+            return {"messages": plain_rates([m for m in messages if " -> " not in m]), "failed": failed}
         if route == ("GET", "/api/review"):
             return self.review(query.get("day", [""])[0])
         if route == ("POST", "/api/write/preview"):
@@ -738,6 +738,12 @@ class Handler(BaseHTTPRequestHandler):
         return data
 
     do_GET = do_POST = do_DELETE = do_HEAD = do_OPTIONS = handle_request
+
+
+def plain_rates(lines):
+    """One line per project where possible: an 'in sync' line adds nothing when the project already has a note."""
+    noted = {line.partition(": ")[0] for line in lines if " in sync" not in line}
+    return [plain_rate(line) for line in lines if not (": in sync" in line and line.partition(": ")[0] in noted)]
 
 
 def plain_rate(line):

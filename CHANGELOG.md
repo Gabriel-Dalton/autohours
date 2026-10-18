@@ -13,6 +13,7 @@
 - Explain on the billing screen that rounding never runs into the next entry.
 - Make the screen after Close app say the app closed as asked, instead of describing a lost connection.
 - Add a Known limitations section to the README.
+- Show one line per project in the Clockify rate check.
 
 ## 1.0.2
 
