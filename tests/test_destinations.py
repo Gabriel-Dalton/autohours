@@ -1,3 +1,4 @@
+import codecs
 import csv
 from datetime import timedelta, timezone
 from urllib.parse import parse_qs, urlsplit
@@ -85,10 +86,22 @@ def test_csv_output_quoting_privacy_and_repeat(tmp_path, origin):
     assert not path.exists()
     assert sync(dest, [block], origin, block.end, True) == (1, 0)
     assert sync(dest, [block], origin, block.end, True) == (0, 1)
-    with path.open(newline="", encoding="utf-8") as stream:
+    assert path.read_bytes().startswith(codecs.BOM_UTF8)
+    with path.open(newline="", encoding="utf-8-sig") as stream:
         rows = list(csv.DictReader(stream))
     assert len(rows) == 1
     assert rows[0] == {"date": "2026-10-16", "start": origin.isoformat(), "end": block.end.isoformat(), "minutes": "15.00", "project": "Acme Corp", "description": block.description, "billable": "true"}
+
+
+def test_csv_keeps_formula_like_names_as_text(tmp_path, origin):
+    path = tmp_path / "timesheet.csv"
+    dest = CSV({"path": str(path)}, timezone.utc)
+    block = Block(origin, origin + timedelta(minutes=15), "=Acme", "+1 support", True)
+    sync(dest, [block], origin, block.end, True)
+    with path.open(newline="", encoding="utf-8-sig") as stream:
+        row = next(csv.DictReader(stream))
+    assert (row["project"], row["description"]) == ("'=Acme", "'+1 support")
+    assert [b.project for b in dest.logged(origin, block.end)] == ["=Acme"]
 
 
 def test_csv_malformed_file_is_preserved(tmp_path, origin):

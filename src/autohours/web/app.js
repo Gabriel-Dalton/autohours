@@ -555,13 +555,14 @@ function renderTabs() {
   projects.forEach((project, i) => {
     const activate = () => { selected = i; renderProject(); document.getElementById(`project-tab-${i}`)?.focus({preventScroll: true}); };
     const tab = el("button", {type: "button", id: `project-tab-${i}`, class: "project-tab", role: "tab",
-      "aria-selected": String(i === selected), "aria-controls": "project-panel", tabindex: i === selected ? "0" : "-1", onclick: activate}, project.name);
+      "aria-selected": String(i === selected), "aria-controls": "project-panel", tabindex: i === selected ? "0" : "-1", title: project.name, onclick: activate}, project.name);
     tab.addEventListener("keydown", e => {
       const next = e.key === "ArrowRight" ? (i + 1) % projects.length : e.key === "ArrowLeft" ? (i + projects.length - 1) % projects.length : e.key === "Home" ? 0 : e.key === "End" ? projects.length - 1 : null;
       if (next !== null) { e.preventDefault(); selected = next; renderProject(); document.getElementById(`project-tab-${next}`).focus(); }
     });
     list.append(tab);
   });
+  document.getElementById(`project-tab-${selected}`)?.scrollIntoView({block: "nearest", inline: "nearest"});
   if (!projects.length) return;
   const project = projects[selected];
   const more = el("button", {type: "button", id: "project-more", class: "icon-button", "aria-label": `More options for ${project.name}`,
@@ -790,6 +791,7 @@ function reviewCard(initialDay, fallback = false) {
       if (fallback && !result.entries.length && chosen === state.yesterday) { chosen = state.today; result = await api("review?day=" + chosen); }
       fallback = false;
       if (request !== requestNumber) return;
+      if (toast.querySelector(".notification.error")) notice("");
       day = chosen; date.querySelector("input").value = chosen; reviewed = result;
       yesterday.setAttribute("aria-pressed", String(chosen === state.yesterday));
       today.setAttribute("aria-pressed", String(chosen === state.today));
@@ -909,7 +911,7 @@ async function home() {
   await projectQueue.catch(() => {});
   await refresh(); editing = false;
   screen("home", "Your timesheets", "Review your time, write timesheets and manage your settings.");
-  page.append(notification(nightlyKind(state.last_run), "Last nightly run", state.last_run));
+  page.append(notification(nightlyKind(state.last_run), "Last morning run", state.last_run));
   const review = reviewCard(state.yesterday); page.append(review.section);
   const morning = scheduleCard(); morning.hidden = true;
   const billingNames = {hourly: "hourly", flat: "flat fee", retainer: "retainer", none: "not billed"};

@@ -97,6 +97,18 @@ class Clockify:
         return blocks
 
 
+FORMULA_START = ("=", "+", "-", "@", chr(9), chr(13))
+
+
+def cell(text):
+    """Spreadsheets run text that starts like a formula; a leading apostrophe keeps it as text."""
+    return "'" + text if text.startswith(FORMULA_START) else text
+
+
+def uncell(text):
+    return text[1:] if text.startswith("'") and text[1:].startswith(FORMULA_START) else text
+
+
 class CSV:
     fields = ["date", "start", "end", "minutes", "project", "description", "billable"]
 
@@ -117,7 +129,7 @@ class CSV:
             return []
         intervals = []
         try:
-            with self.path.open(newline="", encoding="utf-8") as stream:
+            with self.path.open(newline="", encoding="utf-8-sig") as stream:
                 reader = csv.DictReader(stream)
                 if reader.fieldnames != self.fields:
                     raise ValueError("Wrong columns")
@@ -133,26 +145,27 @@ class CSV:
 
     def create(self, block):
         header = not self.path.exists() or self.path.stat().st_size == 0
-        with self.path.open("a", newline="", encoding="utf-8") as stream:
+        # A byte order mark lets Excel read accented and non-Latin names correctly.
+        with self.path.open("a", newline="", encoding="utf-8-sig" if header else "utf-8") as stream:
             writer = csv.DictWriter(stream, fieldnames=self.fields)
             if header:
                 writer.writeheader()
             writer.writerow({"date": block.start.astimezone(self.zone).date().isoformat(),
                              "start": block.start.astimezone(self.zone).isoformat(),
                              "end": block.end.astimezone(self.zone).isoformat(),
-                             "minutes": f"{block.minutes:.2f}", "project": block.project,
-                             "description": block.description, "billable": str(block.billable).lower()})
+                             "minutes": f"{block.minutes:.2f}", "project": cell(block.project),
+                             "description": cell(block.description), "billable": str(block.billable).lower()})
 
     def logged(self, start, end):
         self.existing(start, end)  # Validate before reading project totals.
         if not self.path.exists() or not self.path.stat().st_size:
             return []
-        with self.path.open(newline="", encoding="utf-8") as stream:
+        with self.path.open(newline="", encoding="utf-8-sig") as stream:
             result = []
             for row in csv.DictReader(stream):
                 a, b = max(start, timestamp(row["start"])), min(end, timestamp(row["end"]))
                 if a < b:
-                    result.append(Block(a, b, row["project"], "", False))
+                    result.append(Block(a, b, uncell(row["project"]), "", False))
             return result
 
 

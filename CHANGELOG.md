@@ -1,11 +1,17 @@
 # Changelog
 
-## 1.0.1
+## 1.0.2
+
+The 1.0.1 downloads were never published, so 1.0.2 includes everything since 1.0.0.
 
 - Explain in the README why autohours works without AI: your screen history, which can include secrets, never leaves your computer.
 - Add the walkthrough video to the README.
 - Show the written time in hours and minutes after writing a day, matching the rest of the app.
 - When a day is already fully written, say so instead of offering to write 0 entries.
+- Show a clear message, with the settings file location, when the app cannot open because the settings file has a problem. Before, the downloaded app closed without saying anything.
+- Spreadsheets open accented and non-Latin names correctly in Excel, and names that start with `=`, `+`, `-` or `@` stay as text instead of turning into formulas.
+- Keep the selected project tab visible on narrow windows, and shorten very long project names in the tabs.
+- Clear an old date error once a valid day loads, and call the daily run "Last morning run" to match the Every morning setting.
 
 ## 1.0.0
 

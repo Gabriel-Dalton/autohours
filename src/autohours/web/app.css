@@ -270,7 +270,7 @@ legend { padding: 0; }
 .billing-group .rate-row .field { margin-bottom: 0; }
 .project-tabs { display: flex; position: relative; margin-block: var(--spacing-06); }
 .tab-list { display: flex; flex: 1; min-width: 0; overflow-x: auto; }
-.project-tab { flex: 0 0 auto; min-height: 48px; padding: var(--spacing-04) var(--spacing-05); border: 0; background: var(--layer-accent-01); color: var(--text-primary); }
+.project-tab { flex: 0 0 auto; max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 48px; padding: var(--spacing-04) var(--spacing-05); border: 0; background: var(--layer-accent-01); color: var(--text-primary); }
 .project-tab:hover { background: var(--layer-hover-01); }
 .project-tab[aria-selected="true"] { font-weight: 600; background: var(--background); }
 .project-tabs .icon-button { background: var(--layer-accent-01); }

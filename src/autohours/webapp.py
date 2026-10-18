@@ -22,7 +22,7 @@ import webbrowser
 from zoneinfo import ZoneInfo, available_timezones
 
 from . import desktop, runlog, schedule, setup, taskbar
-from .config import user_config_dir
+from .config import config_path, user_config_dir
 from .credentials import read_key
 from .models import UserError
 from .plugins import DESTINATIONS
@@ -739,9 +739,27 @@ class Handler(BaseHTTPRequestHandler):
     do_GET = do_POST = do_DELETE = do_HEAD = do_OPTIONS = handle_request
 
 
+def startup_alert(message):
+    """A windowed app has no terminal, so a settings problem at launch is shown in a system dialog."""
+    if os.environ.get("AUTOHOURS_NO_WINDOW") or (sys.stderr is not None and not getattr(sys, "frozen", False)):
+        return
+    title = "autohours could not open"
+    try:
+        if sys.platform == "win32":
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(None, message, title, 0x10)
+        elif sys.platform == "darwin":
+            subprocess.run(["osascript", "-e", f"display alert {json.dumps(title)} message {json.dumps(message)} as critical"], check=False)
+    except OSError:
+        pass
+
+
 def launch(explicit=None):
     try:
         server = Server(desktop.Session(explicit))
+    except UserError as exc:
+        startup_alert(f"{exc}\n\nFix your settings file, or move it somewhere else to set up autohours again:\n{config_path(explicit)}")
+        raise
     except OSError:
         raise UserError("Could not open the local app. Check that your computer allows local connections.") from None
     with server:
