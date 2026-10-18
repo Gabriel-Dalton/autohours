@@ -87,7 +87,7 @@ curl -fsSL https://raw.githubusercontent.com/Gabriel-Dalton/autohours/main/insta
 
 **Couldn't I just ask an AI to do this?** You could, once. autohours does it every morning, the same way, without your screen history leaving your computer:
 
-- **Private.** An AI would need your full window history, with client names, documents and emails, sent to it every day. autohours keeps all of that on your computer.
+- **Private.** An AI would need your full screen history sent to it every day. Window titles hold client names, document names, email subjects and private chats, and sometimes things that should never leave your computer, like a password reset link or an API key in a terminal. Once that is sent to an AI service you no longer control where it is stored or who can see it. autohours reads it on your computer and never sends it anywhere.
 - **The same answer every time.** This is billing. The same day always gives the same entries, and "How is this worked out?" shows exactly why, so you can stand behind it if a client asks. An AI can give a different answer each time or invent a block of time.
 - **Runs on its own.** It fills in yesterday each morning with no prompting, no subscription and no cost per run.
 - **Follows your agreements exactly.** Rounding, short breaks, monthly limits and skipping time you already logged are applied by rule, not by guess.

@@ -1,7 +1,9 @@
 # Changelog
 
-## Unreleased
+## 1.0.1
 
+- Explain in the README why autohours works without AI: your screen history, which can include secrets, never leaves your computer.
+- Add the walkthrough video to the README.
 - Show the written time in hours and minutes after writing a day, matching the rest of the app.
 - When a day is already fully written, say so instead of offering to write 0 entries.
 
