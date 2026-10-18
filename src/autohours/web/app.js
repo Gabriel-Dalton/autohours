@@ -759,6 +759,7 @@ function reviewCard(initialDay, fallback = false) {
     if (!reviewed || value("day") !== day) throw Object.assign(new Error("Review this day before writing it."), {field: "day"});
     const preview = await api("write/preview", {day});
     const target = state.destination.type === "clockify" ? "Clockify" : "your spreadsheet";
+    if (!preview.count) { notice(`This day is already in ${target}. There is nothing new to write.`); return; }
     const entries = `${preview.count} ${preview.count === 1 ? "entry" : "entries"}`;
     confirmation(section, `Write ${entries} (${duration(preview.hours * 60)}) to ${target}?`,
       "The preview below checks existing entries and monthly limits. Already logged time is skipped.\n\n" + preview.text,

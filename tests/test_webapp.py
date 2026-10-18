@@ -136,7 +136,7 @@ def test_write_requires_fresh_preview_and_literal_confirmation(call, app, tmp_pa
     with pytest.raises(webapp.InputError):
         call("write", {"day": "2026-10-15", "confirm": True, "preview": preview["preview"]})
     result = call("write", {"day": "2026-10-16", "confirm": True, "preview": preview["preview"]})
-    assert "Wrote 1 entries, 1.00 h" in result["message"]
+    assert "Wrote 1 entry (1 h 0 min)." in result["message"]
     assert "Acme launch" not in (tmp_path / "times.csv").read_text()
     with pytest.raises(webapp.InputError):
         call("write", {"day": "2026-10-16", "confirm": True, "preview": preview["preview"]})

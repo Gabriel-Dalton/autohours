@@ -492,11 +492,15 @@ class Application:
                 log_event(started + "\nRun finished: needs attention")
                 raise InputError("The write did not finish. Some entries may already be saved. Review this day again before retrying.") from None
             log_event(started + "\n" + self.clean(result) + "\nRun finished: success")
-            summary = re.search(r"Wrote \d+ entries, [\d.]+ h\.", result)
+            summary = re.search(r"Wrote (\d+) entries, ([\d.]+) h\.", result)
             skipped = re.search(r"Created \d+, skipped (\d+)", result)
-            message = (summary[0] if summary else "Your timesheet was written.")
+            message = "Your timesheet was written."
+            if summary:
+                count, minutes = int(summary[1]), round(float(summary[2]) * 60)
+                length = f"{minutes // 60} h {minutes % 60} min" if minutes >= 60 else f"{minutes} min"
+                message = f"Wrote {count} {'entry' if count == 1 else 'entries'} ({length})."
             if skipped and int(skipped[1]):
-                message += f" Skipped {skipped[1]} entries already logged."
+                message += f" Skipped {skipped[1]} already logged."
             return {"message": message}
         if route == ("POST", "/api/review/open"):
             cfg, result = s.review(valid_day(data.get("day")))

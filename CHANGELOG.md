@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Show the written time in hours and minutes after writing a day, matching the rest of the app.
+- When a day is already fully written, say so instead of offering to write 0 entries.
+
 ## 1.0.0
 
 First public release, with downloadable Windows and macOS apps.
