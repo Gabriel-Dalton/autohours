@@ -10,6 +10,7 @@ let state, step = "welcome", editing = false, generation = 0, awTimer;
 let projects = [], items = [], remote = [], selected = 0, activitySearch = "", activityExpanded = false;
 let projectQueue = Promise.resolve(), projectFailure = null, projectRevision = 0;
 let primary, keyConnected = false, singleWorkspace = false;
+let beforeStepBack = () => {};
 // Explicit local references keep the sprite contract auditable without a build step.
 const iconPaths = {
   "add": "/icons.svg#add",
@@ -127,6 +128,37 @@ function duration(minutes) {
   const total = Math.round(minutes);
   return total >= 60 ? `${Math.floor(total / 60)} h${total % 60 ? ` ${total % 60} min` : ""}` : `${total} min`;
 }
+// Match Carbon's productive cubic-bezier(0.2, 0, 0.38, 0.9).
+function productiveEase(progress) {
+  if (progress <= 0) return 0;
+  if (progress >= 1) return 1;
+  let low = 0, high = 1;
+  for (let i = 0; i < 18; i++) {
+    const t = (low + high) / 2;
+    const x = 3 * (1 - t) ** 2 * t * 0.2 + 3 * (1 - t) * t ** 2 * 0.38 + t ** 3;
+    if (x < progress) low = t; else high = t;
+  }
+  const t = (low + high) / 2;
+  return 3 * (1 - t) * t ** 2 * 0.9 + t ** 3;
+}
+const valueAnimations = new WeakMap();
+function animateValue(node, target, paint, initial = 0) {
+  const previous = valueAnimations.get(node);
+  if (previous) cancelAnimationFrame(previous.frame);
+  const from = previous?.value ?? initial;
+  const animation = {value: from, frame: 0};
+  valueAnimations.set(node, animation);
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const start = performance.now();
+  const tick = now => {
+    if (!node.isConnected) { valueAnimations.delete(node); return; }
+    const progress = reduced.matches ? 1 : Math.min(1, (now - start) / 240);
+    animation.value = from + (target - from) * productiveEase(progress);
+    paint(animation.value);
+    if (progress < 1) animation.frame = requestAnimationFrame(tick);
+  };
+  tick(start);
+}
 function showError(error) {
   if (step === "projects" && /^project-\d+$/.test(error.field || "")) {
     selected = Number(error.field.slice(8)); renderProject();
@@ -214,19 +246,40 @@ function foot(label, action, back) {
 }
 function screen(name, title, subtitle) {
   step = name; generation++; clearTimeout(awTimer); clearErrors();
+  beforeStepBack = () => {};
+  const shell = document.querySelector("#app-shell");
+  shell.dataset.screen = name;
+  shell.dataset.layout = ["projects", "finish", "home", "welcome"].includes(name) ? "wide" : "readable";
+  shell.classList.toggle("short-screen", ["welcome", "activitywatch", "destination", "connect", "workspace"].includes(name));
+  document.querySelector(".welcome-preview")?.remove();
   page.replaceChildren(el("h1", {tabindex: "-1"}, title), el("p", {class: "subtitle"}, subtitle));
   page.classList.remove("page-enter");
-  requestAnimationFrame(() => page.classList.add("page-enter"));
+  // Commit the reset before restarting the entrance, including rapid Back clicks.
+  void page.offsetWidth;
+  page.classList.add("page-enter");
   footer.replaceChildren(); primary = null;
   const steps = ["welcome", "activitywatch", "destination", ...(state?.destination.type === "clockify" ? ["connect", ...(!singleWorkspace ? ["workspace"] : [])] : []), "projects", "billing", "finish"];
   const index = steps.indexOf(name);
   const labels = {welcome: "Welcome", activitywatch: "ActivityWatch", destination: "Destination", connect: "Connect", workspace: "Workspace", projects: "Projects", billing: "Billing", finish: "Finish"};
+  const routes = {welcome, activitywatch: activityWatch, destination, connect, workspace, projects: projectsScreen, billing, finish};
   document.querySelector("#setup-progress").hidden = name === "home" || editing;
   document.querySelector("#progress-label").textContent = `Step ${index + 1} of ${steps.length}`;
-  document.querySelector("#progress").replaceChildren(...steps.map((s, i) => el("li", {
-    class: i < index ? "complete" : i === index ? "current" : "future", "aria-current": i === index ? "step" : null,
-    "aria-label": `${labels[s]}: ${i < index ? "complete" : i === index ? "current" : "not started"}`
-  }, icon(i < index ? "checkmark--outline" : i === index ? "incomplete" : "circle-dash"), el("span", {}, labels[s]))));
+  const progress = document.querySelector("#step-progress");
+  animateValue(progress, (index + 1) / steps.length, n => { progress.value = n; });
+  document.querySelector("#progress").replaceChildren(...steps.map((s, i) => {
+    const children = [icon(i < index ? "checkmark--outline" : i === index ? "incomplete" : "circle-dash"), el("span", {}, labels[s])];
+    const control = i < index ? button("", async () => {
+      await projectQueue.catch(() => {});
+      const restore = beforeStepBack();
+      await routes[s]();
+      restore?.();
+    }, "progress-back") : null;
+    if (control) { control.replaceChildren(...children); control.setAttribute("aria-label", `Back to ${labels[s]}`); }
+    return el("li", {
+      class: i < index ? "complete" : i === index ? "current" : "future", "aria-current": i === index ? "step" : null,
+      "aria-label": `${labels[s]}: ${i < index ? "complete" : i === index ? "current" : "not started"}`
+    }, ...(control ? [control] : children));
+  }));
   page.querySelector("h1").focus({preventScroll: true});
   window.scrollTo(0, 0);
 }
@@ -255,6 +308,7 @@ function welcome() {
   page.append(el("div", {class: "row wrap"}, el("small", {}, `Time zone: ${friendly} (${state.timezone})`),
     button("Change", () => { zoneBox.hidden = false; search.querySelector("input").focus(); }, "text-button")), zoneBox);
   foot("Get started", async () => { state.timezone = select.value; await api("timezone", {timezone: state.timezone}); activityWatch(); });
+  page.parentElement.append(document.querySelector("#welcome-preview").content.cloneNode(true));
 }
 
 function activityWatch() {
@@ -262,32 +316,44 @@ function activityWatch() {
   const status = card(null, el("p", {role: "status", "aria-live": "polite"}, "Checking ActivityWatch..."));
   const download = link("Download ActivityWatch", "https://activitywatch.net/downloads/"); download.hidden = true;
   const hostBox = el("div", {hidden: true});
-  const host = el("select", {id: "hostname"});
-  hostBox.append(el("label", {class: "field", for: "hostname"}, el("span", {}, "Computer to use"), host));
+  let hostname = state.activitywatch.hostname || "";
   const web = toggle("Also use websites from the ActivityWatch browser extension", "use_web", state.activitywatch.use_web || false, () => check());
   page.append(status, download, hostBox, web);
-  let running = false, checking = false;
+  let running = false, checking = false, recheck = false;
   const current = generation;
   async function check() {
-    if (checking || generation !== current) return;
+    if (generation !== current) return;
+    if (checking) { recheck = true; return; }
     checking = true;
+    const checkedHostname = hostname, useWeb = web.querySelector("input").checked;
     try {
-      const result = await api("activitywatch/check", {hostname: host.value || state.activitywatch.hostname, use_web: web.querySelector("input").checked});
+      const result = await api("activitywatch/check", {hostname: checkedHostname, use_web: useWeb});
       if (generation !== current) return;
+      if (hostname !== checkedHostname || web.querySelector("input").checked !== useWeb) { recheck = true; return; }
       running = result.running;
       status.replaceChildren(notification(running ? "success" : "info", running ? "ActivityWatch is running" : "Waiting for ActivityWatch",
         running ? "Recording apps and time away on this computer." : result.message));
       if (!running) status.append(el("small", {class: "busy"}, "Checking..."));
       download.hidden = running || result.hosts.length > 0;
-      const previous = host.value;
-      host.replaceChildren(el("option", {value: ""}, "Choose your computer"), ...result.hosts.map(h => el("option", {value: h}, h)));
-      host.value = result.hostname || previous;
+      hostname = result.hostname || hostname;
+      const hosts = result.hosts.map(h => [h, h, "Recording apps and time away on this computer.", "document"]);
+      // Keep radio nodes (and keyboard focus) stable during polling and selection.
+      if (JSON.stringify(result.hosts) !== hostBox.dataset.hosts) {
+        hostBox.dataset.hosts = JSON.stringify(result.hosts);
+        hostBox.replaceChildren(choices("Computer to use", "hostname", hosts, hostname, v => { hostname = v; running = false; check(); }));
+      }
+      hostBox.querySelectorAll("input").forEach(input => { input.checked = input.value === hostname; });
       hostBox.hidden = result.hosts.length <= 1;
       if (running) state.activitywatch = {hostname: result.hostname, use_web: web.querySelector("input").checked};
     } catch (error) { if (generation === current) showError(error); }
-    finally { checking = false; if (generation === current && !running) awTimer = setTimeout(check, 3000); }
+    finally {
+      checking = false;
+      if (generation === current) {
+        if (recheck) { recheck = false; check(); }
+        else if (!running) awTimer = setTimeout(check, 3000);
+      }
+    }
   }
-  host.addEventListener("change", () => { running = false; check(); });
   foot("Continue", async () => {
     await check();
     if (!running) throw new Error("Open ActivityWatch and let it record your apps and time away before continuing.");
@@ -386,7 +452,8 @@ function updateCoverage(percent) {
   const bar = document.querySelector("#coverage");
   if (bar) {
     bar.value = percent;
-    document.querySelector("#coverage-percent").textContent = `${Math.round(percent)}%`;
+    const figure = document.querySelector("#coverage-percent");
+    animateValue(figure, percent, n => { figure.textContent = `${Math.round(n)}%`; });
     document.querySelector("#coverage-label").textContent = `${Math.round(percent)}% of your last 7 days`;
   }
 }
@@ -619,6 +686,11 @@ function billing() {
       count_breaks_up_to_minutes: value(`count_breaks_up_to_minutes-${i}`), count_calls_when_away: document.getElementById(`calls-${i}`).checked,
       round_to_minutes: radio(`round_to_minutes-${i}`), rounding: document.getElementById(`up-${i}`).checked ? "up" : "nearest", monthly_cap_hours: value(`monthly_cap_hours-${i}`)}));
   }
+  beforeStepBack = () => {
+    const agreements = collect(); projects.forEach((p, i) => { p.agreement = agreements[i]; });
+    const drafts = projects.map(p => [p.name, p.agreement]);
+    return () => { for (const p of projects) p.agreement = drafts.find(([name]) => name === p.name)?.[1] || p.agreement; };
+  };
   foot("Save and continue", async () => {
     const agreements = collect();
     await api("agreements", {agreements});
@@ -627,11 +699,10 @@ function billing() {
     await refresh();
     if (editing) { editing = false; await home(); } else await finish();
   }, async () => {
-    const agreements = collect(); projects.forEach((p, i) => { p.agreement = agreements[i]; });
     // Keep unfinished billing answers in this page until the user returns.
-    const drafts = projects.map(p => [p.name, p.agreement]);
+    const restore = beforeStepBack();
     await projectsScreen();
-    for (const p of projects) p.agreement = drafts.find(([name]) => name === p.name)?.[1] || p.agreement;
+    restore();
   });
 }
 
@@ -691,15 +762,26 @@ function reviewCard(initialDay, fallback = false) {
       day = chosen; date.querySelector("input").value = chosen; reviewed = result;
       yesterday.setAttribute("aria-pressed", String(chosen === state.yesterday));
       today.setAttribute("aria-pressed", String(chosen === state.today));
-      const metric = (number, label) => el("div", {class: "metric"}, el("small", {}, label), el("strong", {}, number));
-      results.replaceChildren(el("div", {class: "metrics"}, metric(duration(result.minutes), "Time"), metric(String(result.entries.length), "Entries"), ...result.amounts.map(a => metric(a, "Amount"))));
+      const metric = (number, label, format) => {
+        const figure = el("strong", {}, el("span", {class: "visually-hidden"}, format(number)), el("span", {"aria-hidden": "true"}, format(number)));
+        const node = el("div", {class: "metric"}, el("small", {}, label), figure);
+        results.querySelector(".metrics").append(node);
+        if (step === "home") animateValue(figure.lastChild, number, n => { figure.lastChild.textContent = format(n); });
+      };
+      results.replaceChildren(el("div", {class: "metrics"}));
+      metric(result.minutes, "Time", duration);
+      metric(result.entries.length, "Entries", n => String(Math.round(n)));
+      for (const amount of result.amounts) {
+        const [number, currency] = amount.split(" ");
+        metric(Number(number), "Amount", n => n === Number(number) ? amount : `${n.toFixed(2)} ${currency}`);
+      }
       if (!result.entries.length) results.append(el("p", {class: "muted"}, "No timesheet entries yet. Let ActivityWatch record some work, then review this day again."));
       else {
         const descriptions = result.entries.some(e => e.description !== e.project);
         const fullDate = new Intl.DateTimeFormat(undefined, {weekday: "long", year: "numeric", month: "long", day: "numeric"}).format(new Date(chosen + "T12:00:00"));
         const table = el("table", {}, el("caption", {class: "muted"}, el("strong", {}, "Timesheet entries"), fullDate),
-          el("thead", {}, el("tr", {}, ...["Time", "Duration", "Project", ...(descriptions ? ["Description"] : [])].map(h => el("th", {scope: "col"}, h)))),
-          el("tbody", {}, ...result.entries.map(e => el("tr", {}, el("td", {}, e.time), el("td", {}, duration(e.minutes)), el("td", {}, e.project), descriptions ? el("td", {}, e.description) : null))));
+          el("thead", {}, el("tr", {}, ...["Time", "Project", ...(descriptions ? ["Description"] : []), "Duration"].map(h => el("th", {scope: "col"}, h)))),
+          el("tbody", {}, ...result.entries.map(e => el("tr", {}, el("td", {}, e.time), el("td", {}, e.project), descriptions ? el("td", {}, e.description) : null, el("td", {}, duration(e.minutes))))));
         results.append(el("div", {class: "table-scroll", tabindex: "0", role: "region", "aria-label": "Timesheet entries, scroll to see all columns"}, table));
       }
       if (result.unmatched_minutes > 0) results.append(el("p", {class: "review-note"}, `${duration(result.unmatched_minutes)} of activity did not match a project. `,

@@ -15,6 +15,112 @@ import pytest
 WEB = Path(webapp.__file__).parent / "web"
 
 
+def test_productive_motion_and_interruptible_value_animation():
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node is needed to execute the bundled JavaScript helpers")
+    source = (WEB / "app.js").read_text(encoding="utf-8")
+    helpers = source[source.index("function productiveEase("):source.index("function showError(")]
+    checks = r'''
+const assert = require("node:assert/strict");
+assert.equal(productiveEase(-1), 0);
+assert.equal(productiveEase(0), 0);
+assert.equal(productiveEase(1), 1);
+assert.equal(productiveEase(2), 1);
+// At Bezier parameter t=0.5 the specified curve has x=0.3425, y=0.4625.
+assert(Math.abs(productiveEase(0.3425) - 0.4625) < 0.00001);
+let last = 0;
+for (let i = 1; i <= 100; i++) {
+  const next = productiveEase(i / 100);
+  assert(next >= last && next <= 1);
+  last = next;
+}
+let now = 0, sequence = 0;
+const frames = new Map();
+const preference = {matches: false};
+globalThis.performance = {now: () => now};
+globalThis.window = {matchMedia: query => {
+  assert.equal(query, "(prefers-reduced-motion: reduce)"); return preference;
+}};
+globalThis.requestAnimationFrame = callback => { frames.set(++sequence, callback); return sequence; };
+globalThis.cancelAnimationFrame = id => frames.delete(id);
+function advance(time) {
+  now = time;
+  const pending = [...frames.values()]; frames.clear();
+  pending.forEach(callback => callback(now));
+}
+const node = {isConnected: true};
+let displayed;
+animateValue(node, 100, value => { displayed = value; });
+assert.equal(displayed, 0);
+advance(120);
+assert(displayed > 0 && displayed < 100);
+const interrupted = displayed;
+animateValue(node, 25, value => { displayed = value; });
+assert.equal(displayed, interrupted);
+assert.equal(frames.size, 1, "repeated updates cancel the older animation");
+advance(240);
+assert(displayed < interrupted && displayed > 25);
+advance(360);
+assert.equal(displayed, 25);
+assert.equal(frames.size, 0);
+preference.matches = true;
+animateValue(node, 42, value => { displayed = value; });
+assert.equal(displayed, 42);
+assert.equal(frames.size, 0, "reduced motion paints the final value immediately");
+preference.matches = false;
+animateValue(node, 99, value => { displayed = value; });
+preference.matches = true;
+advance(400);
+assert.equal(displayed, 99, "a changed preference stops an in-flight animation");
+assert.equal(frames.size, 0);
+preference.matches = false;
+animateValue(node, 120, value => { displayed = value; });
+node.isConnected = false;
+advance(600);
+assert.equal(displayed, 99, "detached screens are not updated");
+assert.equal(frames.size, 0);
+node.isConnected = true;
+animateValue(node, 1, value => { displayed = value; }, 0.5);
+assert.equal(displayed, 0.5, "progress bars accept fractional starting values");
+advance(840);
+assert.equal(displayed, 1);
+'''
+    subprocess.run([node, "--check", str(WEB / "app.js")], check=True, capture_output=True, text=True)
+    subprocess.run([node, "-e", helpers + checks], check=True, capture_output=True, text=True)
+
+
+def test_welcome_preview_and_strict_csp_contract():
+    assert "style-src 'self';" in webapp.CSP
+    assert "script-src 'self';" in webapp.CSP
+    assert "'unsafe-inline'" not in webapp.CSP
+
+    class Markup(HTMLParser):
+        preview_hidden = False
+        description = False
+
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            assert "style" not in attrs
+            assert not any(key.startswith("on") for key in attrs)
+            if tag == "script":
+                assert attrs.get("src") == "/app.js"
+            if attrs.get("class") == "preview-illustration":
+                self.preview_hidden = attrs.get("aria-hidden") == "true"
+            if attrs.get("class") == "visually-hidden":
+                self.description = True
+
+    parser = Markup()
+    html = (WEB / "index.html").read_text(encoding="utf-8")
+    parser.feed(html)
+    assert parser.preview_hidden and parser.description
+    for text in ("invoice-api - Visual Studio Code", "Homepage redesign - Figma",
+                 "Acme Corp", "2h 15m", "Globex", "1h 30m", "Spotify: not billed"):
+        assert text in html
+    script = (WEB / "app.js").read_text(encoding="utf-8")
+    assert not re.search(r'\.style\b|setAttribute\([\'\"]style[\'\"]', script)
+
+
 def test_activity_pagination_and_nightly_notification_kind():
     node = shutil.which("node")
     if not node:
