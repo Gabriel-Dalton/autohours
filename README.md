@@ -85,6 +85,15 @@ curl -fsSL https://raw.githubusercontent.com/Gabriel-Dalton/autohours/main/insta
 
 **Does it use AI?** No. It only matches the apps and windows you chose for each client.
 
+**Couldn't I just ask an AI to do this?** You could, once. autohours does it every morning, the same way, without your screen history leaving your computer:
+
+- **Private.** An AI would need your full window history, with client names, documents and emails, sent to it every day. autohours keeps all of that on your computer.
+- **The same answer every time.** This is billing. The same day always gives the same entries, and "How is this worked out?" shows exactly why, so you can stand behind it if a client asks. An AI can give a different answer each time or invent a block of time.
+- **Runs on its own.** It fills in yesterday each morning with no prompting, no subscription and no cost per run.
+- **Follows your agreements exactly.** Rounding, short breaks, monthly limits and skipping time you already logged are applied by rule, not by guess.
+
+AI is useful for the one-time setup: working out which apps and windows belong to which client. If you use an AI coding assistant, the [setup skill](skills/autohours-setup/SKILL.md) walks it through that with you.
+
 ## Learn more
 
 - [The desktop app, screen by screen](docs/desktop-app.md)
