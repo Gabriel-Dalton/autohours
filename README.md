@@ -36,9 +36,12 @@ Screenshots use made-up demo data.
 ## Get started
 
 1. Install [ActivityWatch](https://activitywatch.net/downloads/) and leave it running.
-2. Download autohours from the [latest release](https://github.com/Gabriel-Dalton/autohours/releases/latest) and open it:
-   - **Windows:** `autohours-windows.exe`
-   - **Mac:** `autohours-macos-apple-silicon.zip` for M1 or newer, or `autohours-macos-intel.zip` for older Macs. Unzip it and move **autohours** to Applications.
+2. Download autohours and open it:
+   - **Windows:** [autohours-windows.exe](https://github.com/Gabriel-Dalton/autohours/releases/latest/download/autohours-windows.exe)
+   - **Mac with Apple silicon (M1 or newer):** [autohours-macos-apple-silicon.zip](https://github.com/Gabriel-Dalton/autohours/releases/latest/download/autohours-macos-apple-silicon.zip)
+   - **Older Intel Mac:** [autohours-macos-intel.zip](https://github.com/Gabriel-Dalton/autohours/releases/latest/download/autohours-macos-intel.zip)
+
+   On a Mac, unzip it and move **autohours** to Applications. Not sure which Mac you have? Apple menu > **About This Mac** shows "Chip: Apple" or "Processor: Intel". All versions are on the [releases page](https://github.com/Gabriel-Dalton/autohours/releases).
 3. Follow the screens. Setup takes about five minutes.
 
 The downloads are not signed yet, so the first time you open one your computer asks whether to trust it. On Windows choose **More info**, then **Run anyway**. On a Mac, right-click the app and choose **Open**; if that is refused, go to **System Settings > Privacy & Security** and choose **Open Anyway**.
