@@ -2,11 +2,21 @@
 
 ## Unreleased
 
+### Improved
+
+- The app shows its version at the bottom of every screen.
+- An unexpected error names the folder that holds the private run log.
+- Time away on the day the clocks change says why a time in that hour cannot be used.
+
 ### Fixed
 
 - Renaming or removing a client after adding time away for it stopped every review, write and morning run with "Invalid accepted time". Time away now follows a renamed client, and time away for a removed client is ignored.
 - A quick second click while an earlier action was still finishing could show "Another check or save is still running". The app now waits a moment and retries.
 - The website and README said every day is reviewed before it is written; they now say Every morning writes on its own once you turn it on.
+
+### Docs
+
+- The README says where settings live and how to remove autohours cleanly, starting with turning off Every morning.
 
 ## 1.0.4
 

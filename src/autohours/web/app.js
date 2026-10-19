@@ -326,7 +326,11 @@ function screen(name, title, subtitle) {
   page.querySelector("h1").focus({preventScroll: true});
   window.scrollTo(0, 0);
 }
-async function refresh() { state = await api("state"); }
+async function refresh() {
+  state = await api("state");
+  const version = document.getElementById("app-version");
+  if (version && state.version) version.textContent = ` autohours ${state.version}`;
+}
 async function cancelEdit() { await projectQueue.catch(() => {}); await api("reset", {}); await home(); }
 
 function welcome() {

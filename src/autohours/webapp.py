@@ -21,7 +21,7 @@ from urllib.parse import parse_qs, quote, unquote, urlsplit
 import webbrowser
 from zoneinfo import ZoneInfo, available_timezones
 
-from . import accepted, desktop, runlog, schedule, setup, taskbar
+from . import __version__, accepted, desktop, runlog, schedule, setup, taskbar
 from .config import config_path, user_config_dir
 from .credentials import read_key
 from .models import UserError
@@ -213,6 +213,7 @@ class Application:
                 "schedule": nightly, "last_run": last_run,
                 "today": str(today), "yesterday": str(today - timedelta(days=1)),
                 "currency": self.currency, "workspace_name": self.workspace_name,
+                "version": __version__, "log_folder": str(user_config_dir() / "logs"),
                 "clockify_connected": s.http is not None, "single_workspace": len(s.spaces) == 1}
 
     def choose_workspace(self, identifier):
@@ -389,6 +390,8 @@ class Application:
                 raise InputError("This overlaps time away you already added. Remove that first, or choose other times.", "offline-start") from None
             if "must end after" in text:
                 raise InputError("The end must be after the start, on the same day, and not in the future.", "offline-end") from None
+            if "DST" in text:
+                raise InputError("That time happens twice, or not at all, on this day because the clocks changed. Choose a time outside that hour, or add it in your timesheet directly.", "offline-start") from None
             raise InputError("Enter times as hours and minutes, such as 14:30.", "offline-start") from None
         return {"id": item.id}
 
@@ -802,7 +805,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             log_event(server.clean_error(traceback.format_exc()))
             if not self.response_started:
-                self.respond(500, {"error": "Something went wrong. Try again, or close and reopen autohours. Details are in your private run log."})
+                self.respond(500, {"error": f"Something went wrong. Try again, or close and reopen autohours. Details are in your private run log in {user_config_dir() / 'logs'}."})
         finally:
             if shared:
                 with server.app.lock:

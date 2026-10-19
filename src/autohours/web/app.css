@@ -205,6 +205,7 @@ button.text-button { background: transparent; color: var(--link-primary); paddin
 .billing-summary { color: var(--text-secondary); }
 .billing-collapsible > .billing-body { margin: 0; padding: 0 var(--spacing-05) var(--spacing-07); }
 .billing-collapsible[open] > summary { border-bottom: 1px solid var(--border-subtle-01); margin-bottom: var(--spacing-05); }
+.app-version { margin-left: var(--spacing-03); color: var(--text-secondary); }
 .billing-group .copy-agreement { margin: calc(-1 * var(--spacing-03)) 0 var(--spacing-03) calc(-1 * var(--spacing-05)); }
 button.text-button > .icon { position: static; }
 button.text-button > .icon:has(use[href$="#arrow--left"]) { order: -1; }

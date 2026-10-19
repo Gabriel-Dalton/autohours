@@ -99,6 +99,10 @@ If you use one of these setups, please try it and [open an issue](https://github
 
 **Can I undo it?** Delete or edit the entries in Clockify or your spreadsheet. autohours never deletes anything.
 
+**Where are my settings?** In `%APPDATA%\autohours` on Windows and `~/Library/Application Support/autohours` on a Mac, with your time away and the private run logs. The app shows its version at the bottom of every screen.
+
+**How do I remove it?** On Home, turn off Every morning first, so your computer stops trying to run it. Then delete the app and the settings folder above. If you connected Clockify, delete the key in Clockify's settings too; on Windows it is also saved as the user environment variable `CLOCKIFY_API_KEY`. Your timesheets stay where they are.
+
 **Does it use AI?** No. It only matches the apps and windows you chose for each client.
 
 **Couldn't I just ask an AI to do this?** You could, once. autohours does it every morning, the same way, without your screen history leaving your computer:
