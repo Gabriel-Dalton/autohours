@@ -11,7 +11,7 @@
 
 ### Fixed
 
-- On Windows, an action refused because another was still running could reach the window as a network failure instead of a "try again" message, so the automatic retry never happened. autohours now always answers cleanly.
+- On Windows, an action refused because another was still running could reach the window as a network failure instead of a "try again" message, so the automatic retry never happened. autohours now always answers cleanly, and two checks that start together no longer turn each other away.
 - At phone width, the notes above the tables in the HTML report were cut off at the edge. They now wrap, and the tables scroll on their own.
 - A long client name in the activity list was cut off mid-letter. It now ends in an ellipsis and shows in full on hover.
 - `autohours schedule --remove`, or turning Every morning off after the task was deleted by hand, blamed account permissions when there was simply no schedule. It now says there is nothing to remove.

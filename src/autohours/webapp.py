@@ -791,7 +791,8 @@ class Handler(BaseHTTPRequestHandler):
             if path.endswith("/quit"):
                 threading.Thread(target=server.shutdown, daemon=True).start()
             return
-        if not server.app.lock.acquire(blocking=False):
+        # Wait a moment: reads hold the lock only briefly while they count themselves in or out.
+        if not server.app.lock.acquire(timeout=0.25):
             self.respond(409, {"error": "Another check or save is still running. Try this action again in a moment."})
             return
         # Only these pure reads may overlap. Mutations (including previews) keep
