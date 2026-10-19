@@ -5,6 +5,8 @@
 
 **Your timesheet, filled in from what you actually worked on.**
 
+[autohours.vercel.app](https://autohours.vercel.app)
+
 Time trackers like Clockify only work if you remember to press start when you begin, and stop when you switch clients or step away. Miss either and your hours are wrong, so you end up rebuilding the week from memory.
 
 autohours looks at what you did on your computer, works out which client each piece belongs to, leaves out the time you were away, and fills in your timesheet in Clockify or a spreadsheet. You check it before anything is saved.

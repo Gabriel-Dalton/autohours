@@ -1,6 +1,8 @@
 // The hero demo and the How it works walkthrough. Both show their finished state without JavaScript or with reduced motion.
 (() => {
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Stagger positions live in data-i, because the security policy blocks inline style attributes.
+  document.querySelectorAll("[data-i]").forEach(el => el.style.setProperty("--i", el.dataset.i));
   document.documentElement.classList.add("js");
   const minutes = value => { const m = Math.round(value); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
 
@@ -90,4 +92,21 @@
     document.querySelectorAll(".scene-slot").forEach(slot => inline.observe(slot));
   }
   activate("1");
+
+  // Watch the video: scroll to the video section, then play it in a pop-up.
+  const player = document.getElementById("player");
+  const film = player.querySelector("video");
+  const close = () => { film.pause(); if (player.open) player.close(); };
+  document.querySelectorAll("[data-play-video]").forEach(link => link.addEventListener("click", event => {
+    if (typeof player.showModal !== "function") return;
+    event.preventDefault();
+    document.getElementById("video").scrollIntoView({behavior: reduce ? "auto" : "smooth"});
+    setTimeout(() => {
+      player.showModal();
+      film.play().catch(() => {});
+    }, reduce ? 0 : 650);
+  }));
+  player.querySelector(".player-close").addEventListener("click", close);
+  player.addEventListener("click", event => { if (event.target === player) close(); });
+  player.addEventListener("close", () => film.pause());
 })();

@@ -10,6 +10,10 @@
 
 - **Shorter billing screen.** With several clients, each one folds into a line that summarises its answers, such as "By the hour, 120 CAD, breaks up to 10 min". The first client still to answer opens, and a client with a missing answer opens to show it.
 
+### Docs
+
+- A website at [autohours.vercel.app](https://autohours.vercel.app), with an animated walkthrough and the video. It has no tracking and strict security headers.
+
 ## 1.0.3
 
 A big polish release from a full test of the app, including a run against a real Clockify workspace. Setup is harder to get stuck in, messages say what to do next, and finding and assigning your activity is much easier.

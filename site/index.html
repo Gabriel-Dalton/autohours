@@ -34,7 +34,7 @@
       <p class="lead">autohours sees which apps and windows you use, works out which client each piece belongs to, leaves out the time you were away, and fills in Clockify or a spreadsheet. You check it before anything is saved.</p>
       <div class="actions">
         <a class="button primary" id="download" href="https://github.com/Gabriel-Dalton/autohours/releases/latest">Download autohours</a>
-        <a class="button ghost" href="#video">Watch the video (1 min 40 s)</a>
+        <a class="button ghost" href="#video" data-play-video>Watch the video (1 min 40 s)</a>
       </div>
       <p class="fine" id="download-note">Free for Windows and Mac. Works with <a href="https://activitywatch.net/">ActivityWatch</a>, also free.</p>
       <figure class="demo" id="hero-demo" aria-labelledby="hero-demo-caption">
@@ -43,20 +43,20 @@
           <div class="demo-col">
             <p class="demo-label">What you did today</p>
             <ul class="activity">
-              <li style="--i:0"><span class="item"><b>Visual Studio Code</b><small>invoice-api</small></span><span class="dur">1 h 40 min</span><span class="tag acme">Acme Corp</span></li>
-              <li style="--i:1"><span class="item"><b>Figma</b><small>Homepage redesign</small></span><span class="dur">1 h 30 min</span><span class="tag globex">Globex</span></li>
-              <li style="--i:2"><span class="item"><b>Chrome</b><small>Acme staging dashboard</small></span><span class="dur">35 min</span><span class="tag acme">Acme Corp</span></li>
-              <li style="--i:3"><span class="item"><b>Zoom</b><small>Globex weekly sync</small></span><span class="dur">30 min</span><span class="tag globex">Globex</span></li>
-              <li style="--i:4" class="skip-row"><span class="item"><b>Spotify</b><small>Playlist</small></span><span class="dur">50 min</span><span class="tag none">Not billed</span></li>
-              <li style="--i:5" class="skip-row"><span class="item"><b>Away from keyboard</b><small>Lunch</small></span><span class="dur">45 min</span><span class="tag none">Left out</span></li>
+              <li data-i="0"><span class="item"><b>Visual Studio Code</b><small>invoice-api</small></span><span class="dur">1 h 40 min</span><span class="tag acme">Acme Corp</span></li>
+              <li data-i="1"><span class="item"><b>Figma</b><small>Homepage redesign</small></span><span class="dur">1 h 30 min</span><span class="tag globex">Globex</span></li>
+              <li data-i="2"><span class="item"><b>Chrome</b><small>Acme staging dashboard</small></span><span class="dur">35 min</span><span class="tag acme">Acme Corp</span></li>
+              <li data-i="3"><span class="item"><b>Zoom</b><small>Globex weekly sync</small></span><span class="dur">30 min</span><span class="tag globex">Globex</span></li>
+              <li data-i="4" class="skip-row"><span class="item"><b>Spotify</b><small>Playlist</small></span><span class="dur">50 min</span><span class="tag none">Not billed</span></li>
+              <li data-i="5" class="skip-row"><span class="item"><b>Away from keyboard</b><small>Lunch</small></span><span class="dur">45 min</span><span class="tag none">Left out</span></li>
             </ul>
           </div>
           <div class="demo-arrow" aria-hidden="true"></div>
           <div class="demo-col">
             <p class="demo-label">Your timesheet</p>
             <ul class="entries">
-              <li style="--i:0"><span class="dot acme" aria-hidden="true"></span><span>Acme Corp</span><span class="count" data-minutes="135">2 h 15 min</span></li>
-              <li style="--i:1"><span class="dot globex" aria-hidden="true"></span><span>Globex</span><span class="count" data-minutes="120">2 h 0 min</span></li>
+              <li data-i="0"><span class="dot acme" aria-hidden="true"></span><span>Acme Corp</span><span class="count" data-minutes="135">2 h 15 min</span></li>
+              <li data-i="1"><span class="dot globex" aria-hidden="true"></span><span>Globex</span><span class="count" data-minutes="120">2 h 0 min</span></li>
             </ul>
             <div class="totals">
               <div><small>Time</small><strong class="count" data-minutes="255">4 h 15 min</strong></div>
@@ -111,19 +111,19 @@
               <div class="mini-note"><span class="ok" aria-hidden="true"></span><span><b>ActivityWatch is running</b><small>Recording apps and time away on this computer</small></span></div>
               <p class="demo-label">Recording now</p>
               <ul class="mini-list">
-                <li style="--i:0"><span class="item"><b>Visual Studio Code</b><small>checkout.py</small></span><span class="tick-up" data-from="62">1 h 2 min</span></li>
-                <li style="--i:1"><span class="item"><b>Figma</b><small>Brand kit</small></span><span class="tick-up" data-from="38">38 min</span></li>
-                <li style="--i:2"><span class="item"><b>Slack</b><small>#general</small></span><span>12 min</span></li>
-                <li style="--i:3" class="away"><span class="item"><b>Away from keyboard</b><small>Coffee</small></span><span>9 min</span></li>
+                <li data-i="0"><span class="item"><b>Visual Studio Code</b><small>checkout.py</small></span><span class="tick-up" data-from="62">1 h 2 min</span></li>
+                <li data-i="1"><span class="item"><b>Figma</b><small>Brand kit</small></span><span class="tick-up" data-from="38">38 min</span></li>
+                <li data-i="2"><span class="item"><b>Slack</b><small>#general</small></span><span>12 min</span></li>
+                <li data-i="3" class="away"><span class="item"><b>Away from keyboard</b><small>Coffee</small></span><span>9 min</span></li>
               </ul>
             </div>
             <div class="scene" data-scene="2">
               <div class="mini-tabs"><span class="on">Acme Corp</span><span>Globex</span></div>
               <ul class="mini-list checks">
-                <li style="--i:0" class="pick"><span class="box" aria-hidden="true"></span><span class="item"><b>Visual Studio Code</b><small>App</small></span><span class="tag acme">Acme Corp</span><span>12 h 27 min</span></li>
-                <li style="--i:1"><span class="box" aria-hidden="true"></span><span class="item"><b>Figma</b><small>App</small></span><span></span><span>11 h 40 min</span></li>
-                <li style="--i:2" class="pick"><span class="box" aria-hidden="true"></span><span class="item"><b>Acme staging dashboard</b><small>Window title</small></span><span class="tag acme">Acme Corp</span><span>3 h 23 min</span></li>
-                <li style="--i:3"><span class="box" aria-hidden="true"></span><span class="item"><b>Spotify</b><small>App</small></span><span></span><span>1 h 58 min</span></li>
+                <li data-i="0" class="pick"><span class="box" aria-hidden="true"></span><span class="item"><b>Visual Studio Code</b><small>App</small></span><span class="tag acme">Acme Corp</span><span>12 h 27 min</span></li>
+                <li data-i="1"><span class="box" aria-hidden="true"></span><span class="item"><b>Figma</b><small>App</small></span><span></span><span>11 h 40 min</span></li>
+                <li data-i="2" class="pick"><span class="box" aria-hidden="true"></span><span class="item"><b>Acme staging dashboard</b><small>Window title</small></span><span class="tag acme">Acme Corp</span><span>3 h 23 min</span></li>
+                <li data-i="3"><span class="box" aria-hidden="true"></span><span class="item"><b>Spotify</b><small>App</small></span><span></span><span>1 h 58 min</span></li>
               </ul>
               <div class="mini-coverage"><span>Assigned</span><span class="bar"><span></span></span></div>
             </div>
@@ -218,6 +218,16 @@
       <p class="fine" id="all-downloads">All versions: <a href="https://github.com/Gabriel-Dalton/autohours/releases/latest/download/autohours-windows.exe">Windows</a> · <a href="https://github.com/Gabriel-Dalton/autohours/releases/latest/download/autohours-macos-apple-silicon.zip">Mac with Apple silicon</a> · <a href="https://github.com/Gabriel-Dalton/autohours/releases/latest/download/autohours-macos-intel.zip">Older Intel Mac</a></p>
     </section>
   </main>
+
+  <dialog class="player" id="player" aria-label="autohours video">
+    <div class="player-bar">
+      <span>See it set up in under two minutes</span>
+      <button type="button" class="player-close" aria-label="Close video">Close</button>
+    </div>
+    <video controls playsinline preload="none" poster="assets/video-poster.jpg" width="1920" height="1080">
+      <source src="assets/autohours.mp4" type="video/mp4">
+    </video>
+  </dialog>
 
   <footer class="site-footer">
     <div class="wrap footer-row">

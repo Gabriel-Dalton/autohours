@@ -1,0 +1,4 @@
+Contact: https://github.com/Gabriel-Dalton/autohours/security/advisories/new
+Policy: https://github.com/Gabriel-Dalton/autohours/blob/main/SECURITY.md
+Preferred-Languages: en
+Expires: 2027-10-19T00:00:00.000Z
