@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import socket
 import threading
+import time
 import tomllib
 from urllib.error import HTTPError
 from urllib.parse import parse_qs, urlsplit
@@ -88,6 +89,11 @@ def call(request, app, server_factory):
 
         def invoke(path, data=None, method=None):
             status, result, _ = http(server, "/api/" + path, data, method)
+            for _ in range(10):  # Like the app window, retry while an earlier request is still finishing.
+                if status != 409:
+                    break
+                time.sleep(0.3)
+                status, result, _ = http(server, "/api/" + path, data, method)
             if status != 200:
                 raise webapp.InputError(result["error"], result.get("field"))
             return result

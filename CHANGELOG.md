@@ -5,6 +5,7 @@
 ### Fixed
 
 - Renaming or removing a client after adding time away for it stopped every review, write and morning run with "Invalid accepted time". Time away now follows a renamed client, and time away for a removed client is ignored.
+- A quick second click while an earlier action was still finishing could show "Another check or save is still running". The app now waits a moment and retries.
 - The website and README said every day is reviewed before it is written; they now say Every morning writes on its own once you turn it on.
 
 ## 1.0.4

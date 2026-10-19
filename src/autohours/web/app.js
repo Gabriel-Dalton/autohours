@@ -119,10 +119,16 @@ function notification(kind, title, subtitle = "", dismiss = false) {
 }
 async function api(path, data, method = data === undefined ? "GET" : "POST") {
   if (disconnected) throw new Error("autohours has closed");
-  const response = await fetch("/api/" + path, {
+  const send = () => fetch("/api/" + path, {
     method, headers: {"X-Autohours-Token": token, ...(data === undefined ? {} : {"Content-Type": "application/json"})},
     body: data === undefined ? undefined : JSON.stringify(data), cache: "no-store", credentials: "omit"
   });
+  // 409 means another action was still running and nothing was done, so a short wait and a retry is safe.
+  let response = await send();
+  for (let attempt = 0; response.status === 409 && attempt < 5 && !disconnected; attempt++) {
+    await new Promise(resolve => setTimeout(resolve, 400));
+    response = await send();
+  }
   const result = await response.json();
   if (disconnected) throw new Error("autohours has closed");
   if (!response.ok) throw Object.assign(new Error(result.error || "autohours could not process this request."), {field: result.field, nextStep: result.error ? "" : "Try the action again. If it still fails, close this window and open autohours again."});
