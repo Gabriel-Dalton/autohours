@@ -6,6 +6,8 @@
 - Keep each screen's heading aligned with the step bar and at the same height from step to step, so the page no longer jumps while Clockify connects.
 - Show the Clockify rate check in plain English, hide Update Clockify when nothing would change, and list only the confirmed results afterwards.
 - Keep the write confirmation short, with the full technical preview behind "Show the full preview".
+- Plainer connection messages: "Open ActivityWatch and try again", "Check your internet connection" for Clockify, and a revoked Clockify key now says to create a new key and run setup again.
+- Align the time zone Change link with its text on small screens.
 - Clear the "Open ActivityWatch" error as soon as ActivityWatch is detected.
 - Show the Workspace step only when you have more than one Clockify workspace, so the step count no longer changes after connecting.
 - When ActivityWatch has more than one computer, ask you to choose one instead of saying ActivityWatch is not open.

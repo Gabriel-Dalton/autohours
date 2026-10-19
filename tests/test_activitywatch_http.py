@@ -89,7 +89,7 @@ def test_429_bounded_and_errors_hide_body(monkeypatch):
 def test_network_failure_is_not_retried():
     http = JsonHTTP("https://api.example")
     http.opener = Opener([URLError("private-error")])
-    with pytest.raises(UserError, match="preview again"):
+    with pytest.raises(UserError, match="review the day again"):
         http.request("POST", "/test", {})
     assert len(http.opener.requests) == 1
     assert NoRedirect().redirect_request(None, None, 302, "", {}, "https://other.example") is None

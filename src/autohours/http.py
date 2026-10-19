@@ -62,9 +62,12 @@ class JsonHTTP:
                     continue
                 code = exc.code
                 exc.close()
-                fix = "Check CLOCKIFY_API_KEY and your workspace permissions." if code in (401, 403) else "Check the service settings and try again."
+                fix = ("Your key was not accepted. Create a new key in Clockify settings and run setup again, or check your workspace permissions."
+                       if code in (401, 403) else "Check the service settings and try again.")
                 raise UserError(f"{self.label} returned HTTP {code}. {fix}") from None
             except (URLError, TimeoutError, OSError):
-                raise UserError(f"Cannot reach {self.label}. Check that it is running and your connection works. If a write failed, preview again before retrying.") from None
+                if self.label == "ActivityWatch":
+                    raise UserError("Cannot reach ActivityWatch. Open ActivityWatch and try again.") from None
+                raise UserError(f"Cannot reach {self.label}. Check your internet connection and try again. If a write was interrupted, review the day again before retrying.") from None
             except (ValueError, UnicodeError):
                 raise UserError(f"{self.label} returned an unreadable response. Check its URL and version.") from None
