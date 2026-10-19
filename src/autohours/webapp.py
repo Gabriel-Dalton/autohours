@@ -865,10 +865,10 @@ def plain_rate(line):
     if detail == "rate not set; rate unchanged.":
         return f"{name}: no hourly rate yet, so Clockify is left as it is."
     if detail == "currency not set; rate unchanged.":
-        return f"{name}: no currency yet, so Clockify is left as it is."
+        return f"{name}: no currency yet, so Clockify is left as it is. Choose a currency for it in Clients and billing."
     found = re.fullmatch(r"workspace currency (\S+) differs from agreement (\S+); refusing to apply rate\.", detail)
     if found:
-        return f"{name}: your Clockify workspace uses {found[1]} but this client is billed in {found[2]}, so the rate is not changed."
+        return f"{name}: your Clockify workspace uses {found[1]} but this client is billed in {found[2]}, so the rate is not changed. Bill this client in {found[1]} in Clients and billing, or set its rate in Clockify yourself."
     if detail.startswith("in sync"):
         return f"{name}: already matches ({detail.removeprefix('in sync (').rstrip(')')})"
     if detail.startswith("confirmed; "):

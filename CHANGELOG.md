@@ -11,6 +11,8 @@
 
 ### Fixed
 
+- After adding or removing time away, keyboard focus jumped to the top of the page. It now returns to the Time away section.
+- When a Clockify rate cannot be set because of the currency, the message now says what to do next.
 - On Windows, an action refused because another was still running could reach the window as a network failure instead of a "try again" message, so the automatic retry never happened. autohours now always answers cleanly, and two checks that start together no longer turn each other away.
 - At phone width, the notes above the tables in the HTML report were cut off at the edge. They now wrap, and the tables scroll on their own.
 - A long client name in the activity list was cut off mid-letter. It now ends in an ellipsis and shows in full on hover.
@@ -21,6 +23,7 @@
 
 ### Docs
 
+- The website's removal answer showed the Windows settings folder as `%APPDATA%utohours`; it now reads `%APPDATA%utohours`. The scheduling guide calls the feature Every morning, like the app.
 - A mistyped website address shows a page that leads back home, instead of a bare error code. On Linux, the website's button opens the list of downloads instead of offering one that does not run there.
 - Without JavaScript, the website shows all three walkthrough steps instead of an empty space.
 - The command-line guide mentions time away for offline work.

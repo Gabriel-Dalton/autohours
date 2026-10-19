@@ -811,14 +811,16 @@ function confirmation(parent, title, text, approveLabel, action, cancel = () => 
 
 // Calls, meetings and visits away from the computer, confirmed by the person and kept in a private file.
 async function offlineSection(day, reload) {
-  const box = el("section", {class: "offline-time", "aria-labelledby": "offline-heading"}, el("h3", {id: "offline-heading"}, "Time away from the computer"));
+  const box = el("section", {class: "offline-time", "aria-labelledby": "offline-heading"}, el("h3", {id: "offline-heading", tabindex: "-1"}, "Time away from the computer"));
+  // After adding or removing, the section redraws; return focus to it so keyboard users keep their place.
+  const reloadAndFocus = async () => { await reload(); document.getElementById("offline-heading")?.focus(); };
   const {blocks} = await api("offline?day=" + encodeURIComponent(day));
   if (blocks.length) {
     box.append(el("ul", {class: "offline-list"}, ...blocks.map(b => el("li", {},
       el("span", {class: "offline-when"}, `${b.start} to ${b.end}`), el("span", {}, b.client), b.note ? el("span", {class: "muted"}, b.note) : null,
       button("Remove", async () => {
         await api("offline", {id: b.id}, "DELETE");
-        notice("Time away removed. Anything already written stays in your timesheet."); reload();
+        notice("Time away removed. Anything already written stays in your timesheet."); await reloadAndFocus();
       }, "text-button")))));
   } else {
     box.append(el("p", {class: "muted"}, "Add calls, meetings or site visits that happened away from the computer. They count as work for the client you choose."));
@@ -831,7 +833,7 @@ async function offlineSection(day, reload) {
     el("div", {class: "row wrap"},
       button("Add time away", async () => {
         await api("offline", {day, client: clients.value, start: value("offline-start"), end: value("offline-end"), note: value("offline-note")});
-        notice("Time away added."); reload();
+        notice("Time away added."); await reloadAndFocus();
       }, "primary"),
       button("Cancel", () => { clearErrors(); form.querySelectorAll("input").forEach(i => { i.value = ""; }); form.hidden = true; open.hidden = false; open.focus(); }, "text-button")));
   const open = button("Add time away", () => { clearErrors(); form.hidden = false; open.hidden = true; document.querySelector("#offline-start").focus(); }, "text-button");
