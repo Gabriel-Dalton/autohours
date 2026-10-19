@@ -41,7 +41,7 @@ def load(config):
             if not isinstance(row.get("start"), str) or not isinstance(row.get("end"), str):
                 raise ValueError
             if row.get("project") not in names:
-                continue  # A client removed from the settings no longer has time to count.
+                continue  # Left by a hand edit; saving clients in the app tidies these away.
             item = Accepted(row["id"], timestamp(row["start"]), timestamp(row["end"]),
                             names.index(row["project"]), row.get("note", ""))
             if not isinstance(item.id, str) or not item.id or not isinstance(item.note, str) or item.end <= item.start:
@@ -95,19 +95,22 @@ def add(config, day, start, end, project, note=""):
     return item
 
 
-def rename_projects(config_path, renames):
-    """Carry accepted time over when clients are renamed; old name to new name."""
-    path = Path(config_path).resolve().with_name("autohours.accepted.toml")
-    if not renames or not path.exists():
-        return
-    raw = tomllib.loads(path.read_text(encoding="utf-8"))
-    rows = raw.get("accepted", [])
-    if not any(row.get("project") in renames for row in rows):
-        return
-    text = ""
-    for row in rows:
-        row = {**row, "project": renames.get(row.get("project"), row.get("project"))}
-        text += "\n[[accepted]]\n" + "".join(f"{key} = {json.dumps(value, ensure_ascii=False)}\n" for key, value in row.items())
+def _raw_rows(path):
+    if not path.exists():
+        return []
+    try:
+        rows = tomllib.loads(path.read_text(encoding="utf-8")).get("accepted", [])
+        if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+            raise ValueError
+        return rows
+    except (ValueError, UnicodeError):
+        raise UserError(f"Invalid accepted time in {path}. Check IDs, projects, timestamps and overlapping blocks.") from None
+
+
+def _write_rows(path, rows):
+    text = "".join("\n[[accepted]]\n" + "".join(f"{key} = {json.dumps(value, ensure_ascii=False)}\n" for key, value in row.items())
+                   for row in rows)
+    # Atomic replacement beside the private file, without touching the config.
     handle, temporary = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as stream:
@@ -118,18 +121,29 @@ def rename_projects(config_path, renames):
             os.unlink(temporary)
 
 
+def plan_client_changes(config_path, renames, names):
+    """Rows after renaming clients (old name to new) and dropping clients no longer in the settings.
+
+    Returns (path, rows, removed client names), or None when nothing changes."""
+    path = Path(config_path).resolve().with_name("autohours.accepted.toml")
+    rows = _raw_rows(path)
+    updated = [{**row, "project": renames.get(row.get("project"), row.get("project"))} for row in rows]
+    kept = [row for row in updated if row.get("project") in names]
+    if kept == rows:
+        return None
+    return path, kept, sorted({row.get("project") for row in updated if row.get("project") not in names}, key=str)
+
+
+def apply_client_changes(plan):
+    if plan:
+        _write_rows(plan[0], plan[1])
+
+
 def remove(config, identifier):
-    rows = load(config)
-    remaining = [row for row in rows if row.id != identifier]
+    load(config)  # Refuse to rewrite a file that does not validate.
+    path = path_for(config)
+    rows = _raw_rows(path)
+    remaining = [row for row in rows if row.get("id") != identifier]
     if len(rows) == len(remaining):
         raise UserError(f"Accepted ID '{identifier}' was not found.")
-    path = path_for(config)
-    # Atomic replacement beside the private file, without touching the config.
-    handle, temporary = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
-    try:
-        with os.fdopen(handle, "w", encoding="utf-8") as stream:
-            stream.write("".join(_serialize(row, config) for row in remaining))
-        os.replace(temporary, path)
-    finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
+    _write_rows(path, remaining)

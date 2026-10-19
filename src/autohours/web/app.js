@@ -524,7 +524,7 @@ function activityPage(allItems, search, expanded, keep = () => true) {
 }
 function nightlyKind(summary) {
   if (summary.startsWith("Not run yet.")) return "info";
-  return /: (wrote \d+ entries, .+|completed)\.$/.test(summary) ? "success" : "error";
+  return /: (wrote \d+ entr(?:y|ies), .+|completed)\.$/.test(summary) ? "success" : "error";
 }
 function activityRows() {
   const list = document.querySelector("#activity-list");
@@ -781,11 +781,12 @@ function billing() {
   foot("Save and continue", async () => {
     const agreements = collect();
     await api("agreements", {agreements});
-    await api("save", {});
+    const saved = await api("save", {});
     try { sessionStorage.removeItem(draftKey); } catch {}
     projects.forEach((p, i) => { p.agreement = agreements[i]; });
     await refresh();
     if (editing) { editing = false; await home(); } else await finish();
+    if (saved.message) notice(saved.message);
   }, async () => {
     // Keep unfinished billing answers in this page until the user returns.
     const restore = beforeStepBack();

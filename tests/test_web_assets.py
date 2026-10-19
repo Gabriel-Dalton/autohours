@@ -138,6 +138,7 @@ assert.deepEqual(activityPage([], "", false), {visible: [], total: 0});
 assert.equal(activityPage(items.slice(0, 12), "", false).visible.length, 12);
 assert.equal(nightlyKind("Not run yet. Your first run will appear here."), "info");
 for (const text of ["Today at 6:00 AM: wrote 5 entries, 2 h 45 min.",
+                    "Today at 6:00 AM: wrote 1 entry, 30 min.",
                     "Today at 6:00 AM: wrote 0 entries, 0 min.", "Last run: completed."]) {
   assert.equal(nightlyKind(text), "success");
 }

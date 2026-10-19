@@ -310,6 +310,42 @@ def test_time_away_is_added_listed_validated_and_removed(call, app, tmp_path):
         call("offline", {"id": block["id"]}, "DELETE")
 
 
+def test_removing_a_client_takes_its_time_away_and_spares_the_rest(call, app, tmp_path):
+    csv_setup(call, tmp_path)
+    call("save", {})
+    day = str((datetime.now(timezone.utc) - timedelta(days=2)).date())
+    call("offline", {"day": day, "client": "Acme Corp", "start": "10:00", "end": "11:00"})
+    accepted_file = tmp_path / "autohours.accepted.toml"
+    # A row for a client that only exists in a hand edit must survive removing another row.
+    accepted_file.write_text(accepted_file.read_text(encoding="utf-8") + '\n[[accepted]]\nid = "handedit001"\nstart = "2026-10-15T09:00:00+00:00"\nend = "2026-10-15T10:00:00+00:00"\nproject = "Elsewhere"\nnote = "keep"\n', encoding="utf-8")
+    call("offline", {"day": day, "client": "Acme Corp", "start": "12:00", "end": "12:30"})
+    [first, second] = call(f"offline?day={day}")["blocks"]
+    call("offline", {"id": second["id"]}, "DELETE")
+    assert "handedit001" in accepted_file.read_text(encoding="utf-8")
+    projects = call("state")["projects"]
+    projects.append({"name": "Globex", "description": "Globex", "items": projects[0]["items"]})
+    projects[0]["items"] = []
+    call("projects", {"projects": [projects[-1]]})
+    call("agreements", {"agreements": [{"billing": "none"}]})
+    result = call("save", {})
+    assert result["message"] == "Time away for Acme Corp, Elsewhere was removed with the client."
+    assert accepted_file.read_text(encoding="utf-8").strip() == ""
+    assert call(f"offline?day={day}")["blocks"] == []
+
+
+def test_unreadable_time_away_file_stops_the_save_before_anything_changes(call, app, tmp_path):
+    csv_setup(call, tmp_path)
+    call("save", {})
+    before = app.session.path.read_text(encoding="utf-8")
+    (tmp_path / "autohours.accepted.toml").write_text("not = [valid", encoding="utf-8")
+    projects = call("state")["projects"]
+    projects[0]["name"] = "Acme Inc"
+    call("projects", {"projects": projects})
+    with pytest.raises(webapp.InputError, match="time away file could not be read"):
+        call("save", {})
+    assert app.session.path.read_text(encoding="utf-8") == before
+
+
 def test_client_names_differing_only_in_capitals_are_duplicates(app):
     app.session.add_project("Acme Corp", "Acme")
     with pytest.raises(webapp.UserError, match="not already in your project list"):

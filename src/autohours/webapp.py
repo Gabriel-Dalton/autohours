@@ -531,9 +531,21 @@ class Application:
                     raise InputError("Choose how you bill this client.", f"billing-{i}")
             renames = {self.saved_names[pid]: row["name"] for pid, row in zip(self.project_ids, s.raw["projects"])
                        if pid in self.saved_names and self.saved_names[pid] != row["name"]}
+            try:
+                time_away = accepted.plan_client_changes(s.path, renames, {row["name"] for row in s.raw["projects"]})
+            except UserError:
+                raise InputError("Your time away file could not be read, so nothing was saved. Close autohours, move autohours.accepted.toml out of your settings folder, and try again.") from None
             s.save()
-            accepted.rename_projects(s.path, renames)
+            try:
+                accepted.apply_client_changes(time_away)
+            except OSError:
+                raise InputError("Your settings are saved, but your time away could not be updated. Close any program using autohours.accepted.toml and save again.") from None
             self.saved_names = dict(zip(self.project_ids, (row["name"] for row in s.raw["projects"])))
+            if time_away and time_away[2]:
+                gone = ", ".join(time_away[2])
+                self.saved_key = self.saved_key or bool(self.secrets)
+                self.invalidate()
+                return {"saved": True, "message": f"Time away for {gone} was removed with the client."}
             if s.raw["destination"]["type"] == "clockify" and s.http:
                 s.remote = setup.remote_projects(s.http, s.raw["destination"]["workspace"])
             self.saved_key = self.saved_key or bool(self.secrets)
@@ -741,6 +753,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         self.body_read = True
         lengths = self.headers.get_all("Content-Length", [])
+        if not lengths and not self.headers.get("Transfer-Encoding"):
+            return  # No body was sent.
         if len(lengths) == 1 and lengths[0].isdigit() and int(lengths[0]) <= 1024 * 1024:
             self.rfile.read(int(lengths[0]))
         else:

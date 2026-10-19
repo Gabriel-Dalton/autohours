@@ -21,7 +21,7 @@
 - At phone width, the notes above the tables in the HTML report were cut off at the edge. They now wrap, and the tables scroll on their own.
 - A long client name in the activity list was cut off mid-letter. It now ends in an ellipsis and shows in full on hover.
 - `autohours schedule --remove`, or turning Every morning off after the task was deleted by hand, blamed account permissions when there was simply no schedule. It now says there is nothing to remove.
-- Renaming or removing a client after adding time away for it stopped every review, write and morning run with "Invalid accepted time". Time away now follows a renamed client, and time away for a removed client is ignored.
+- Renaming or removing a client after adding time away for it stopped every review, write and morning run with "Invalid accepted time". Time away now follows a renamed client. Removing a client and saving removes its time away too, and the app says so. Removing one time away entry never touches any other.
 - A quick second click while an earlier action was still finishing could show "Another check or save is still running". The app now waits a moment and retries.
 - The website and README said every day is reviewed before it is written; they now say Every morning writes on its own once you turn it on.
 
