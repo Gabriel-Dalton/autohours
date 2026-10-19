@@ -532,6 +532,8 @@ class Application:
             renames = {self.saved_names[pid]: row["name"] for pid, row in zip(self.project_ids, s.raw["projects"])
                        if pid in self.saved_names and self.saved_names[pid] != row["name"]}
             removed = {name for pid, name in self.saved_names.items() if pid not in self.project_ids}
+            # A client removed and added back under the same name in one sitting is still that client.
+            removed -= {row["name"] for pid, row in zip(self.project_ids, s.raw["projects"]) if pid not in self.saved_names}
             try:
                 time_away = accepted.plan_client_changes(s.path, renames, {row["name"] for row in s.raw["projects"]}, removed)
             except UserError:

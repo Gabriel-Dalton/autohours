@@ -342,6 +342,18 @@ def test_a_client_renamed_to_a_removed_clients_name_keeps_only_its_own_time(tmp_
     assert [(r["id"], r["project"]) for r in rows] == [("b1", "A")] and gone == ["A"]
 
 
+def test_a_client_removed_and_added_back_keeps_its_time_away(call, app, tmp_path):
+    csv_setup(call, tmp_path)
+    call("save", {})
+    day = str((datetime.now(timezone.utc) - timedelta(days=2)).date())
+    call("offline", {"day": day, "client": "Acme Corp", "start": "10:00", "end": "11:00"})
+    [old] = call("state")["projects"]
+    call("projects", {"projects": [{**{k: v for k, v in old.items() if k != "id"}}]})
+    call("agreements", {"agreements": [{"billing": "none"}]})
+    assert "message" not in call("save", {})
+    assert len(call(f"offline?day={day}")["blocks"]) == 1
+
+
 def test_time_away_rows_that_are_not_plain_text_are_reported_not_crashed(tmp_path):
     from autohours import accepted
     (tmp_path / "autohours.accepted.toml").write_text('[[accepted]]\nid = "x1"\nproject = ["x"]\n', encoding="utf-8")

@@ -870,11 +870,12 @@ function reviewCard(initialDay, fallback = false) {
   section.append(el("div", {class: "row input-row date-controls wrap"}, date, el("div", {class: "row date-chips", role: "group", "aria-label": "Review date"}, yesterday, today)),
     results, el("div", {class: "row wrap"}, writeButton, reportButton));
   date.querySelector("input").addEventListener("change", () => { fallback = false; load(value("day")); });
+  const labelWrite = d => buttonLabel(writeButton, `Write ${d === state.yesterday ? "yesterday" : d === state.today ? "today" : "this day"} to ${state.destination.type === "clockify" ? "Clockify" : "your spreadsheet"}`, "arrow--right");
   async function load(chosen) {
     const request = ++requestNumber;
     section.querySelector(".confirmation")?.remove();
     reviewed = null; writeButton.disabled = reportButton.disabled = true;
-    buttonLabel(writeButton, `Write ${chosen === state.yesterday ? "yesterday" : chosen === state.today ? "today" : "this day"} to ${state.destination.type === "clockify" ? "Clockify" : "your spreadsheet"}`, "arrow--right");
+    labelWrite(chosen);
     date.querySelector("input").value = chosen;
     yesterday.setAttribute("aria-pressed", String(chosen === state.yesterday));
     today.setAttribute("aria-pressed", String(chosen === state.today));
@@ -886,7 +887,7 @@ function reviewCard(initialDay, fallback = false) {
       fallback = false;
       if (request !== requestNumber) return;
       if (toast.querySelector(".notification.error")) notice("");
-      day = chosen; date.querySelector("input").value = chosen; reviewed = result;
+      day = chosen; date.querySelector("input").value = chosen; reviewed = result; labelWrite(day);
       yesterday.setAttribute("aria-pressed", String(chosen === state.yesterday));
       today.setAttribute("aria-pressed", String(chosen === state.today));
       const metric = (number, label, format) => {
