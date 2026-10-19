@@ -8,6 +8,8 @@
 - Keep the write confirmation short, with the full technical preview behind "Show the full preview".
 - Plainer connection messages: "Open ActivityWatch and try again", "Check your internet connection" for Clockify, and a revoked Clockify key now says to create a new key and run setup again.
 - Align the time zone Change link with its text on small screens.
+- Switch an existing setup between a spreadsheet and Clockify without losing clients, activity or billing. Before, the app asked you to remove every client first, on a screen you could not reach.
+- When a client's Clockify project has been archived, renamed or deleted, say which client and how to fix it, instead of listing project IDs.
 - Clear the "Open ActivityWatch" error as soon as ActivityWatch is detected.
 - Show the Workspace step only when you have more than one Clockify workspace, so the step count no longer changes after connecting.
 - When ActivityWatch has more than one computer, ask you to choose one instead of saying ActivityWatch is not open.

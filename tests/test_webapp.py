@@ -280,6 +280,16 @@ def test_switch_to_spreadsheet_does_not_assume_clockify_currency(call, app, tmp_
     assert call("state")["currency"] == ""
 
 
+def test_switching_destination_keeps_clients_and_drops_the_old_link(call, app, tmp_path):
+    csv_setup(call, tmp_path)
+    app.session.raw["projects"][0]["destination_project"] = "old-id"
+    call("destination", {"type": "clockify"})
+    assert [p["name"] for p in call("state")["projects"]] == ["Acme Corp"]
+    assert "destination_project" not in app.session.raw["projects"][0]
+    call("destination", {"type": "csv", "path": str(tmp_path / "other.csv")})
+    assert call("state")["projects"][0]["items"]
+
+
 @pytest.mark.parametrize("headers, token", [({}, False), ({"X-Autohours-Token": "wrong"}, True),
     ({"Host": "localhost:9000"}, True), ({"Origin": "https://foreign.example"}, True), ({"Origin": "null"}, True)])
 def test_rejects_missing_token_wrong_host_and_foreign_origin(server_factory, headers, token):

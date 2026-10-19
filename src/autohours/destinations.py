@@ -47,7 +47,13 @@ class Clockify:
         workspaces = self.http.request("GET", "/workspaces")
         self.workspace = quote(resolve(workspaces, self.settings["workspace"], "Workspace"), safe="")
         projects = self._pages(f"/workspaces/{self.workspace}/projects", {"archived": "false"})
-        self.project_ids = {p.destination_project: resolve(projects, p.destination_project, "Project") for p in self.projects}
+        self.project_ids = {}
+        for p in self.projects:
+            try:
+                self.project_ids[p.destination_project] = resolve(projects, p.destination_project, "Project")
+            except UserError:
+                raise UserError(f"The Clockify project for {p.name} was not found or is ambiguous. It may have been archived, renamed or deleted. "
+                                "In autohours, open Projects and billing, choose its Clockify project and save; or set destination_project in your settings.") from None
         for p in self.projects:
             if "monthly_cap_hours" in (p.agreement or {}) or "billing" in (p.agreement or {}):
                 identifier = self.project_ids[p.destination_project]

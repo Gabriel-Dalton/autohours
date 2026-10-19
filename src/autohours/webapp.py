@@ -182,10 +182,12 @@ class Application:
             values = {k: v for k, v in values.items() if k not in ("call_apps", "call_titles")}
             target = row.get("destination_project", row["name"])
             target = next((p["id"] for p in s.remote if target in (p["id"], p["name"])), target)
+            # A client with no matching Clockify project (for example after switching from a spreadsheet) is created on save.
+            create = row["name"] in s.pending or (s.raw["destination"]["type"] == "clockify" and s.http is not None
+                                                  and not any(p["id"] == target for p in s.remote))
             rows.append({"id": self.project_ids[index], "name": row["name"], "description": row["description"],
                          "items": assigned, "agreement": values,
-                         "target": "" if row["name"] in s.pending else target,
-                         "create": row["name"] in s.pending})
+                         "target": "" if create else target, "create": create})
         return rows
 
     def state(self):
@@ -403,8 +405,10 @@ class Application:
             kind = data.get("type")
             if kind not in ("csv", "clockify"):
                 raise InputError("Choose where your timesheets should go.", "destination")
-            if kind != s.raw["destination"]["type"] and s.raw["projects"]:
-                raise InputError("Remove your current projects before changing the destination, then add them for the new destination.", "destination")
+            if kind != s.raw["destination"]["type"]:
+                for row in s.raw["projects"]:
+                    row.pop("destination_project", None)
+                s.pending = []
             if kind == "csv":
                 path_value = text_field(data, "path", "Choose a filename for your spreadsheet.")
                 target = Path(path_value).expanduser().resolve()
