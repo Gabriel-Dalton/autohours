@@ -231,3 +231,4 @@ details p { padding: 0 1rem 1rem; color: var(--text-secondary); margin: 0; }
   .anim .demo .demo-arrow { transform: none !important; }
   .walk-step { opacity: 1 !important; }
 }
+details code { font-size: 0.875em; background: var(--layer-hover); padding: 0 0.25rem; overflow-wrap: anywhere; }
