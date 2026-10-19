@@ -840,7 +840,7 @@ function reviewCard(initialDay, fallback = false) {
       if (result.short_piece_minutes > 0) results.append(el("p", {class: "review-note"}, `${duration(result.short_piece_minutes)} was in pieces too short to bill (under ${result.minimum_minutes} min).`));
       results.append(el("details", {}, el("summary", {}, "How is this worked out?"),
         el("p", {}, "Work on the same client close together becomes one entry. Time you were away from the computer is left out, unless your agreement counts short breaks or calls."),
-        el("p", {}, "Rounding and monthly limits are applied to each entry. Work you added by hand for a call or meeting is included."),
+        el("p", {}, "Rounding and monthly limits are applied to each entry. Time you add yourself in Clockify or your spreadsheet is kept, and autohours never writes over it."),
         el("p", {}, "Before writing, autohours checks your timesheet and skips anything already there. For clients with a monthly limit, the written total can be lower than shown here, because time already in your timesheet counts towards the limit.")));
       writeButton.disabled = !result.entries.length; reportButton.disabled = false;
       buttonLabel(writeButton, `Write ${day === state.yesterday ? "yesterday" : day === state.today ? "today" : "this day"} to ${state.destination.type === "clockify" ? "Clockify" : "your spreadsheet"}`, "arrow--right");
