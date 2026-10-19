@@ -23,6 +23,7 @@ html { scroll-behavior: smooth; scroll-padding-top: 4rem; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 body { margin: 0; background: var(--background); color: var(--text); font: 400 1rem/1.5 "IBM Plex Sans", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 img, video { display: block; max-width: 100%; height: auto; }
+[hidden] { display: none !important; }
 a { color: var(--link); text-underline-offset: 0.15em; }
 a:hover { color: var(--link-hover); }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -109,6 +110,14 @@ details p { padding: 0 1rem 1rem; color: var(--text-secondary); margin: 0; }
 .player-close { background: transparent; color: #f4f4f4; border: 1px solid #6f6f6f; padding: 0.5rem 1rem; font: inherit; cursor: pointer; }
 .player-close:hover { background: #333333; }
 .player video { width: 100%; }
+.player-stage { position: relative; }
+.player-unmute, .player-start { position: absolute; border: 0; cursor: pointer; font: inherit; color: #ffffff; background: #0f62fe; }
+.player-unmute:hover, .player-start:hover { background: #0050e6; }
+.player-unmute { top: 1rem; left: 1rem; display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem 0.625rem 0.875rem; }
+.player-unmute::before { content: ""; width: 1.25rem; height: 1.25rem; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M27.16 8.08 25.7 9.48a11.94 11.94 0 0 1 0 13.04l1.46 1.4a13.95 13.95 0 0 0 0-15.84zM22.72 12.26l-1.46 1.43a4.38 4.38 0 0 1 0 4.62l1.46 1.43a6.37 6.37 0 0 0 0-7.48zM18 30a1 1 0 0 1-.71-.3L9.67 22H3a1 1 0 0 1-1-1V11a1 1 0 0 1 1-1h6.67l7.62-7.7a1 1 0 0 1 1.41 0A1 1 0 0 1 19 3v26a1 1 0 0 1-1 1z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M27.16 8.08 25.7 9.48a11.94 11.94 0 0 1 0 13.04l1.46 1.4a13.95 13.95 0 0 0 0-15.84zM22.72 12.26l-1.46 1.43a4.38 4.38 0 0 1 0 4.62l1.46 1.43a6.37 6.37 0 0 0 0-7.48zM18 30a1 1 0 0 1-.71-.3L9.67 22H3a1 1 0 0 1-1-1V11a1 1 0 0 1 1-1h6.67l7.62-7.7a1 1 0 0 1 1.41 0A1 1 0 0 1 19 3v26a1 1 0 0 1-1 1z'/%3E%3C/svg%3E") center / contain no-repeat; }
+.player-start { top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 1rem 2rem; font-size: 1.125rem; }
 @media (max-width: 42rem) { .player { width: 100vw; margin: auto 0; } }
 
 /* Hero demo and walkthrough scenes: small, faithful versions of the app's own screens. */

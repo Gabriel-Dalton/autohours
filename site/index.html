@@ -224,9 +224,13 @@
       <span>See it set up in under two minutes</span>
       <button type="button" class="player-close" aria-label="Close video">Close</button>
     </div>
-    <video controls playsinline preload="none" poster="assets/video-poster.jpg" width="1920" height="1080">
-      <source src="assets/autohours.mp4" type="video/mp4">
-    </video>
+    <div class="player-stage">
+      <video controls playsinline preload="none" poster="assets/video-poster.jpg" width="1920" height="1080">
+        <source src="assets/autohours.mp4" type="video/mp4">
+      </video>
+      <button type="button" class="player-unmute" hidden>Unmute</button>
+      <button type="button" class="player-start" hidden>Play video</button>
+    </div>
   </dialog>
 
   <footer class="site-footer">

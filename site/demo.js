@@ -103,9 +103,29 @@
     document.getElementById("video").scrollIntoView({behavior: reduce ? "auto" : "smooth"});
     setTimeout(() => {
       player.showModal();
-      film.play().catch(() => {});
+      start();
     }, reduce ? 0 : 650);
   }));
+  // Try with sound. If the browser blocks that, play muted with an Unmute button; if it blocks even that, offer Play.
+  const unmute = player.querySelector(".player-unmute");
+  const startButton = player.querySelector(".player-start");
+  const soundState = () => { unmute.hidden = film.paused || !(film.muted || film.volume === 0); };
+  const start = () => {
+    startButton.hidden = true;
+    film.muted = false;
+    film.play().then(soundState).catch(() => {
+      film.muted = true;
+      film.play().then(soundState).catch(() => { startButton.hidden = false; soundState(); });
+    });
+  };
+  unmute.addEventListener("click", () => {
+    film.muted = false;
+    if (film.volume === 0) film.volume = 1;
+    film.play().catch(() => {});
+    soundState();
+  });
+  startButton.addEventListener("click", start);
+  for (const event of ["volumechange", "play", "pause"]) film.addEventListener(event, soundState);
   player.querySelector(".player-close").addEventListener("click", close);
   player.addEventListener("click", event => { if (event.target === player) close(); });
   player.addEventListener("close", () => film.pause());
