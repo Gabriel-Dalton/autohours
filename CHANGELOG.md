@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add time away from the computer on Home: calls, meetings or visits you confirm for a client count as work, with a private note that never reaches the timesheet.
+
 ## 1.0.3
 
 - Line up the Add button and the Yesterday and Today buttons with the fields beside them, and the "per hour in" label with the rate fields, at every window size.

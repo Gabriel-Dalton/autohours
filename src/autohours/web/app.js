@@ -775,6 +775,36 @@ function confirmation(parent, title, text, approveLabel, action, cancel = () => 
   return panel;
 }
 
+// Calls, meetings and visits away from the computer, confirmed by the person and kept in a private file.
+async function offlineSection(day, reload) {
+  const box = el("section", {class: "offline-time", "aria-labelledby": "offline-heading"}, el("h3", {id: "offline-heading"}, "Time away from the computer"));
+  const {blocks} = await api("offline?day=" + encodeURIComponent(day));
+  if (blocks.length) {
+    box.append(el("ul", {class: "offline-list"}, ...blocks.map(b => el("li", {},
+      el("span", {class: "offline-when"}, `${b.start} to ${b.end}`), el("span", {}, b.client), b.note ? el("span", {class: "muted"}, b.note) : null,
+      button("Remove", async () => {
+        await api("offline", {id: b.id}, "DELETE");
+        notice("Time away removed. Anything already written stays in your timesheet."); reload();
+      }, "text-button")))));
+  } else {
+    box.append(el("p", {class: "muted"}, "Add calls, meetings or site visits that happened away from the computer. They count as work for the client you choose."));
+  }
+  const clients = el("select", {id: "offline-client"}, ...state.projects.map(p => el("option", {value: p.name}, p.name)));
+  const form = el("div", {class: "offline-form", hidden: true},
+    el("label", {class: "field", for: "offline-client"}, el("span", {}, "Client"), el("span", {class: "field-control"}, clients)),
+    el("div", {class: "row wrap offline-times"}, field("From", "offline-start", "", "time"), field("To", "offline-end", "", "time")),
+    field("Note, kept on this computer (optional)", "offline-note", "", "text", {maxlength: "200"}),
+    el("div", {class: "row wrap"},
+      button("Add time away", async () => {
+        await api("offline", {day, client: clients.value, start: value("offline-start"), end: value("offline-end"), note: value("offline-note")});
+        notice("Time away added."); reload();
+      }, "primary"),
+      button("Cancel", () => { clearErrors(); form.querySelectorAll("input").forEach(i => { i.value = ""; }); form.hidden = true; open.hidden = false; open.focus(); }, "text-button")));
+  const open = button("Add time away", () => { clearErrors(); form.hidden = false; open.hidden = true; document.querySelector("#offline-start").focus(); }, "text-button");
+  box.append(open, form);
+  return box;
+}
+
 function reviewCard(initialDay, fallback = false) {
   let day = initialDay, reviewed = null, requestNumber = 0;
   const section = card("Review a day");
@@ -853,6 +883,11 @@ function reviewCard(initialDay, fallback = false) {
         el("p", {}, "Work on the same client close together becomes one entry. Time you were away from the computer is left out, unless your agreement counts short breaks or calls."),
         el("p", {}, "Rounding and monthly limits are applied to each entry. Time you add yourself in Clockify or your spreadsheet is kept, and autohours never writes over it."),
         el("p", {}, "Before writing, autohours checks your timesheet and skips anything already there. For clients with a monthly limit, the written total can be lower than shown here, because time already in your timesheet counts towards the limit.")));
+      if (step === "home") {
+        const offline = await offlineSection(chosen, () => load(chosen));
+        if (request !== requestNumber) return;
+        results.append(offline);
+      }
       writeButton.disabled = !result.entries.length; reportButton.disabled = false;
       buttonLabel(writeButton, `Write ${day === state.yesterday ? "yesterday" : day === state.today ? "today" : "this day"} to ${state.destination.type === "clockify" ? "Clockify" : "your spreadsheet"}`, "arrow--right");
     } catch (error) {

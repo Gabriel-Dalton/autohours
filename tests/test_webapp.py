@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import errno
 from email.message import Message
 import io
@@ -278,6 +278,28 @@ def test_switch_to_spreadsheet_does_not_assume_clockify_currency(call, app, tmp_
     assert call("clockify/key", {"key": "synthetic-secret"})["currency"] == "CAD"
     call("destination", {"type": "csv", "path": str(tmp_path / "times.csv")})
     assert call("state")["currency"] == ""
+
+
+def test_time_away_is_added_listed_validated_and_removed(call, app, tmp_path):
+    csv_setup(call, tmp_path)
+    call("save", {})
+    day = str((datetime.now(timezone.utc) - timedelta(days=2)).date())
+    assert call(f"offline?day={day}")["blocks"] == []
+    with pytest.raises(webapp.InputError, match="Choose a client"):
+        call("offline", {"day": day, "client": "Nobody", "start": "10:00", "end": "11:00"})
+    with pytest.raises(webapp.InputError, match="from time"):
+        call("offline", {"day": day, "client": "Acme Corp", "start": "", "end": "11:00"})
+    with pytest.raises(webapp.InputError, match="end must be after"):
+        call("offline", {"day": day, "client": "Acme Corp", "start": "11:00", "end": "10:00"})
+    call("offline", {"day": day, "client": "Acme Corp", "start": "10:00", "end": "11:00", "note": "  Call   with Acme "})
+    [block] = call(f"offline?day={day}")["blocks"]
+    assert (block["start"], block["end"], block["client"], block["note"]) == ("10:00", "11:00", "Acme Corp", "Call with Acme")
+    with pytest.raises(webapp.InputError, match="overlaps"):
+        call("offline", {"day": day, "client": "Acme Corp", "start": "10:30", "end": "10:45"})
+    call("offline", {"id": block["id"]}, "DELETE")
+    assert call(f"offline?day={day}")["blocks"] == []
+    with pytest.raises(webapp.InputError, match="already removed"):
+        call("offline", {"id": block["id"]}, "DELETE")
 
 
 def test_switching_destination_keeps_clients_and_drops_the_old_link(call, app, tmp_path):

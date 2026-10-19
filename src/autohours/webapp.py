@@ -21,7 +21,7 @@ from urllib.parse import parse_qs, quote, unquote, urlsplit
 import webbrowser
 from zoneinfo import ZoneInfo, available_timezones
 
-from . import desktop, runlog, schedule, setup, taskbar
+from . import accepted, desktop, runlog, schedule, setup, taskbar
 from .config import config_path, user_config_dir
 from .credentials import read_key
 from .models import UserError
@@ -355,9 +355,58 @@ class Application:
                 "short_piece_minutes": sum(minutes for minutes in short_pieces if minutes < cfg.blocks["min_block_minutes"]),
                 "minimum_minutes": cfg.blocks["min_block_minutes"]}
 
+    def offline_blocks(self, day):
+        cfg = self.session.config()
+        zone = cfg.timezone
+        chosen = date.fromisoformat(valid_day(day))
+        return [{"id": row.id, "start": row.start.astimezone(zone).strftime("%H:%M"), "end": row.end.astimezone(zone).strftime("%H:%M"),
+                 "client": cfg.projects[row.project].name, "note": row.note}
+                for row in accepted.load(cfg) if row.start.astimezone(zone).date() == chosen]
+
+    def add_offline(self, data):
+        s = self.session
+        s.require_saved()
+        day = date.fromisoformat(valid_day(data.get("day")))
+        cfg = s.config()
+        client = data.get("client")
+        if client not in [p.name for p in cfg.projects]:
+            raise InputError("Choose a client.", "offline-client")
+        times = {}
+        for key, label in (("start", "From"), ("end", "To")):
+            value = data.get(key)
+            if not isinstance(value, str) or not re.fullmatch(r"\d{2}:\d{2}", value):
+                raise InputError(f"Enter the {label.lower()} time.", f"offline-{key}")
+            times[key] = value
+        note = data.get("note", "")
+        if not isinstance(note, str) or len(note) > 200:
+            raise InputError("Keep the note under 200 characters.", "offline-note")
+        try:
+            item = accepted.add(cfg, day, times["start"], times["end"], client, " ".join(note.split()))
+        except UserError as exc:
+            text = str(exc)
+            if "overlaps" in text:
+                raise InputError("This overlaps time away you already added. Remove that first, or choose other times.", "offline-start") from None
+            if "must end after" in text:
+                raise InputError("The end must be after the start, on the same day, and not in the future.", "offline-end") from None
+            raise InputError("Enter times as hours and minutes, such as 14:30.", "offline-start") from None
+        return {"id": item.id}
+
     def dispatch(self, method, path, data, query):
         s = self.session
         route = (method, path)
+        if route == ("GET", "/api/offline"):
+            return {"blocks": self.offline_blocks(query.get("day", [""])[0])}
+        if route == ("POST", "/api/offline"):
+            return self.add_offline(data)
+        if route == ("DELETE", "/api/offline"):
+            identifier = data.get("id")
+            if not isinstance(identifier, str) or not identifier:
+                raise InputError("Choose the time away to remove.")
+            try:
+                accepted.remove(s.config(), identifier)
+            except UserError:
+                raise InputError("That time away was already removed. Review the day again.") from None
+            return {"ok": True}
         if route == ("GET", "/api/state"):
             return self.state()
         if route == ("POST", "/api/reset"):

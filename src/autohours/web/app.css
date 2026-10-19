@@ -187,6 +187,16 @@ button.tertiary:hover { background: var(--button-primary); color: var(--text-on-
 button.text-button { background: transparent; color: var(--link-primary); padding: 14px 16px; display: inline-flex; align-items: center; gap: var(--spacing-03); }
 .timezone-row { row-gap: 0; }
 .timezone-row .text-button { padding-inline: 0; }
+.offline-time { margin-top: var(--spacing-07); padding-top: var(--spacing-05); border-top: 1px solid var(--border-subtle-01); }
+.offline-time h3 { margin: 0 0 var(--spacing-03); font: var(--body-01); font-weight: 600; }
+.offline-list { list-style: none; padding: 0; margin: 0 0 var(--spacing-03); }
+.offline-list li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-02) var(--spacing-05); border-bottom: 1px solid var(--border-subtle-01); padding-block: var(--spacing-02); }
+.offline-list .offline-when { font-variant-numeric: tabular-nums; min-width: 8.5rem; }
+.offline-list li > button { margin-left: auto; }
+.offline-time > .text-button { margin-left: calc(-1 * var(--spacing-05)); }
+.offline-form { display: grid; gap: var(--spacing-05); max-width: 32rem; margin-top: var(--spacing-03); }
+.offline-form .field { margin: 0; }
+.offline-times > .field { flex: 1; min-width: 8rem; margin: 0; }
 .billing-group .copy-agreement { margin: calc(-1 * var(--spacing-03)) 0 var(--spacing-03) calc(-1 * var(--spacing-05)); }
 button.text-button > .icon { position: static; }
 button.text-button > .icon:has(use[href$="#arrow--left"]) { order: -1; }

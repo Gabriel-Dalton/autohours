@@ -22,7 +22,7 @@ https://github.com/user-attachments/assets/870e3923-da51-4687-8dcd-2c481f40b9cf
 ## Who it's not for
 
 - **Employers watching staff.** autohours is for tracking your own time on your own computer. It has no team features and sends nothing to anyone else.
-- **Work that mostly happens away from a computer.** It only sees what happens on the computer it runs on. You can still add other time by hand.
+- **Work that mostly happens away from a computer.** It only sees what happens on the computer it runs on. You can add calls and meetings away from the computer yourself.
 - **Invoicing.** It fills in timesheets; your invoicing tool takes it from there.
 
 ## How it works
@@ -85,7 +85,7 @@ autohours is used every day on Windows with Clockify. Some setups have not been 
 - **Linux is not supported.** There is no Linux download and none is planned. The automated tests run on Linux, so it may work from a terminal, but nobody uses it there.
 - **Large Clockify workspaces** with many people or hundreds of projects. It has been tested on a personal workspace.
 - **Only Clockify and spreadsheets.** Other time trackers such as Toggl or Harvest are not supported yet.
-- **Only work on this computer.** It cannot see calls on your phone or work away from your desk; add that time by hand.
+- **Only work on this computer.** It cannot see calls on your phone or work away from your desk. Add that time on Home under Time away from the computer, or in Clockify or your spreadsheet.
 
 If you use one of these setups, please try it and [open an issue](https://github.com/Gabriel-Dalton/autohours/issues) saying what worked and what did not. Fixes and new destinations are welcome too; see [Contributing](CONTRIBUTING.md) and [adding a destination](docs/adding-a-destination.md).
 
