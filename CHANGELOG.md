@@ -2,57 +2,93 @@
 
 ## Unreleased
 
-- With several clients, the billing screen folds each client into a line that summarises its answers, such as "By the hour, 120 CAD, breaks up to 10 min". The first client still to answer opens; a client with a missing answer opens to show it.
-- Add time away from the computer on Home: calls, meetings or visits you confirm for a client count as work, with a private note that never reaches the timesheet.
+### New
+
+- **Time away from the computer.** Add calls, meetings or visits away from your desk on Home. They count as work for the client you choose, and the private note you add never reaches the timesheet.
+
+### Improved
+
+- **Shorter billing screen.** With several clients, each one folds into a line that summarises its answers, such as "By the hour, 120 CAD, breaks up to 10 min". The first client still to answer opens, and a client with a missing answer opens to show it.
 
 ## 1.0.3
 
-- Line up the Add button and the Yesterday and Today buttons with the fields beside them, and the "per hour in" label with the rate fields, at every window size.
-- Keep each screen's heading aligned with the step bar and at the same height from step to step, so the page no longer jumps while Clockify connects.
-- Show the Clockify rate check in plain English, hide Update Clockify when nothing would change, and list only the confirmed results afterwards.
-- Keep the write confirmation short, with the full technical preview behind "Show the full preview".
-- Plainer connection messages: "Open ActivityWatch and try again", "Check your internet connection" for Clockify, and a revoked Clockify key now says to create a new key and run setup again.
-- Align the time zone Change link with its text on small screens.
-- Switch an existing setup between a spreadsheet and Clockify without losing clients, activity or billing. Before, the app asked you to remove every client first, on a screen you could not reach.
-- When a client's Clockify project has been archived, renamed or deleted, say which client and how to fix it, instead of listing project IDs.
-- The terminal setup only asks for an hourly rate and currency for hourly clients, like the app, and lists activity in hours and minutes.
-- Call them clients throughout the app: the Home tile is now Clients and billing, and messages, menus and the review table say client instead of mixing client and project.
-- Say "monthly limit" consistently, and replace "backfilled" with plain wording.
-- Bring the desktop app guide up to date with these changes.
-- Add "Same as" on the billing screen to copy the previous client's answers.
-- Explain an empty day accurately: nothing recorded yet today, no work recorded, or activity that matches no client yet.
-- Clear the "Open ActivityWatch" error as soon as ActivityWatch is detected.
-- Show the Workspace step only when you have more than one Clockify workspace, so the step count no longer changes after connecting.
-- When ActivityWatch has more than one computer, ask you to choose one instead of saying ActivityWatch is not open.
-- Ask before discarding project changes when you go back from editing projects on Home.
-- Explain on the billing screen that rounding never runs into the next entry.
-- Make the screen after Close app say the app closed as asked, instead of describing a lost connection.
-- Add a Known limitations section to the README.
-- Show one line per project in the Clockify rate check.
-- Treat the mouse back button and Alt+Left as the on-screen Back, instead of leaving the page and closing the app.
-- Say when the spreadsheet is open in another program such as Excel, instead of a general error.
-- Refuse an existing file with other columns as the spreadsheet at setup, instead of failing at the first write.
-- Add `autohours --version`.
-- Refreshing the window returns to the same screen, keeping unsaved billing answers, instead of starting setup again.
-- Offer up to 500 apps, windows and websites from the last week on the projects screen, instead of only the 20 biggest, so smaller clients can be found and searched.
-- "Assign it" opens the projects screen showing only activity no client covers yet, with a switch to show everything.
-- Restyle the full report to match the app, in plain language, with a legend of only the colours used and tables that fit a phone.
-- Say when website matching is on but the ActivityWatch browser extension has sent nothing, instead of pointing at app recording.
-- Rewrite "How is this worked out?" in plain language.
-- Show the morning schedule as a plain sentence with the time in your clock format, with the exact command behind "Show the full preview".
+A big polish release from a full test of the app, including a run against a real Clockify workspace. Setup is harder to get stuck in, messages say what to do next, and finding and assigning your activity is much easier.
+
+### Highlights
+
+- **Find every client's work.** The client screen now lists up to 500 apps, windows and websites from your last week instead of only the 20 biggest, and "Assign it" shows only the activity no client covers yet.
+- **No more dead ends.** Refreshing the window keeps your place, the mouse back button no longer closes the app, and you can switch between a spreadsheet and Clockify without starting over.
+- **Clearer everywhere.** Error messages name the problem and the next step, and the full report has been redesigned to match the app.
+
+### New
+
+- "Same as" on the billing screen copies the previous client's answers.
+- "Only show activity with no client" switch on the client screen.
+- Switch an existing setup between a spreadsheet and Clockify, keeping your clients, activity and billing.
+- `autohours --version`.
+
+### Improved
+
+- Up to 500 apps, windows and websites to choose from, so smaller clients can be found and searched.
+- "Assign it" opens the client screen showing only activity no client covers yet.
+- The full report matches the app, uses plain language, lists only the colours used and fits a phone.
+- Clockify rate checks read in plain English, show one line per client, and hide Update Clockify when nothing would change.
+- The write confirmation is one sentence, with the technical detail behind "Show the full preview".
+- The morning schedule is described in a sentence, in your clock format, with the exact command behind "Show the full preview".
+- "How is this worked out?" is rewritten in plain language, and an empty day says why it is empty.
+- The app says "client" throughout, and "monthly limit" consistently.
+- Headings line up with the step bar and stay put from step to step.
+- The terminal setup asks for a rate only for hourly clients, like the app, and lists activity in hours and minutes.
+
+### Fixed
+
+- Refreshing the window sent you back to Welcome. It now returns to the same screen and keeps unsaved billing answers.
+- The mouse back button or Alt+Left left the page and closed the app. It now acts like the on-screen Back.
+- Switching from a spreadsheet to Clockify asked you to remove every client first, on a screen you could not reach.
+- A spreadsheet open in Excel showed a general error. It now says to close it there.
+- An unrelated file was accepted as the spreadsheet and failed at the first write. Setup now refuses it.
+- A deleted or renamed Clockify project showed project IDs. It now names the client and how to fix it.
+- Connection messages pointed at the wrong fix, and a revoked Clockify key mentioned a developer setting.
+- Website matching without the browser extension blamed app recording.
+- With two computers in ActivityWatch, continuing without choosing one said ActivityWatch was not open.
+- Edits to clients from Home were lost without warning when going back. The app now asks first.
+- The Workspace step appeared and disappeared during setup.
+- The "Open ActivityWatch" error stayed on screen after ActivityWatch started.
+- The screen after Close app described a lost connection.
+- The Add button, the Yesterday and Today buttons, the "per hour in" label and the time zone Change link were out of line at some window sizes.
+
+### Docs
+
+- Known limitations in the README: Mac is experimental, Linux is not supported.
+- The desktop app guide describes all of the above.
 
 ## 1.0.2
 
-The 1.0.1 downloads were never published, so 1.0.2 includes everything since 1.0.0.
+Safer spreadsheets and clearer messages, found in the first full test of the app. The 1.0.1 downloads were never published, so 1.0.2 includes everything since 1.0.0.
 
-- Explain in the README why autohours works without AI: your screen history, which can include secrets, never leaves your computer.
-- Add the walkthrough video to the README.
-- Show the written time in hours and minutes after writing a day, matching the rest of the app.
-- When a day is already fully written, say so instead of offering to write 0 entries.
-- Show a clear message, with the settings file location, when the app cannot open because the settings file has a problem. Before, the downloaded app closed without saying anything.
-- Spreadsheets open accented and non-Latin names correctly in Excel, and names that start with `=`, `+`, `-` or `@` stay as text instead of turning into formulas.
-- Keep the selected project tab visible on narrow windows, and shorten very long project names in the tabs.
-- Clear an old date error once a valid day loads, and call the daily run "Last morning run" to match the Every morning setting.
+### Highlights
+
+- **Spreadsheets that open cleanly in Excel,** including accented and non-English client names.
+- **A clear message when the app cannot open,** instead of closing without a word.
+
+### Improved
+
+- After writing a day, the time written is shown in hours and minutes.
+- A day that is already written says so, instead of offering to write 0 entries.
+- The selected client tab stays visible on narrow windows, and very long names are shortened.
+- The daily run is called "Last morning run" to match the Every morning setting.
+
+### Fixed
+
+- The downloaded app closed silently when the settings file had a problem. It now shows a message with the file's location.
+- Accented and non-Latin names were garbled in Excel.
+- Client names starting with `=`, `+`, `-` or `@` turned into spreadsheet formulas.
+- An old date error stayed on screen after a valid day loaded.
+
+### Docs
+
+- The README explains why autohours works without AI: your screen history, which can include secrets, never leaves your computer.
+- The walkthrough video is in the README.
 
 ## 1.0.0
 
