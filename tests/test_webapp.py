@@ -597,6 +597,12 @@ def test_recent_run_summary_uses_written_hours_without_private_output(tmp_path):
     assert runlog.last_summary(tmp_path, Clock.now().date()) == "Today at 6:00 AM: wrote 5 entries, 2 h 45 min."
 
 
+@pytest.mark.parametrize("line", ["Wrote 1 entry, 0.50 h.", "Wrote 1 entries, 0.50 h."])
+def test_recent_run_summary_says_one_entry(tmp_path, line):
+    (tmp_path / "2026-10-17.log").write_text(f"Run started: 2026-10-17T06:00:00\n{line}\nRun finished: success\n")
+    assert runlog.last_summary(tmp_path, Clock.now().date()) == "Today at 6:00 AM: wrote 1 entry, 30 min."
+
+
 def test_review_summary_reports_minutes_threshold_and_hourly_amount(call, app, tmp_path, monkeypatch, event):
     from autohours.models import Activity
     from autohours.pipeline import build
@@ -692,6 +698,10 @@ def test_read_requests_overlap_but_mutations_remain_exclusive(server_factory, ap
         for thread in threads:
             thread.join(timeout=15)
     assert len(results) == 2 and all(result[0] == 200 for result in results)
+    # A reader counts itself out just after its response is sent.
+    deadline = time.monotonic() + 5
+    while app.readers and time.monotonic() < deadline:
+        time.sleep(0.01)
     assert app.readers == 0
 
 

@@ -49,8 +49,19 @@ def prune(directory, today):
             path.unlink()
 
 
+_log = None
+
+
+def record(line):
+    """Write a bookkeeping line to the private run log only, not the console."""
+    if _log is not None:
+        _log.write(line + "\n")
+        _log.flush()
+
+
 @contextmanager
 def logging(directory=None, today=None):
+    global _log
     directory = directory or log_directory()
     today = today or date.today()
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -60,8 +71,12 @@ def logging(directory=None, today=None):
     path.chmod(0o600)
     with os.fdopen(descriptor, "a", encoding="utf-8") as stream:
         with redirect_stdout(Tee(stream, sys.stdout)), redirect_stderr(Tee(stream, sys.stderr)):
-            print(f"Run started: {datetime.now().isoformat(timespec='seconds')}")
-            yield
+            _log = stream
+            try:
+                record(f"Run started: {datetime.now().isoformat(timespec='seconds')}")
+                yield
+            finally:
+                _log = None
 
 
 def last_result(directory=None):
@@ -115,12 +130,12 @@ def last_summary(directory=None, today=None, config=None, nightly_only=False):
         label += f" at {started.hour % 12 or 12}:{started.minute:02d} {'AM' if started.hour < 12 else 'PM'}"
     except ValueError:
         label = "Last run"
-    written = next((line for line in reversed(lines) if re.fullmatch(r"Wrote \d+ entries, \d+\.\d+ h\.", line)), None)
+    written = next((line for line in reversed(lines) if re.fullmatch(r"Wrote \d+ entr(?:y|ies), \d+\.\d+ h\.", line)), None)
     if "Run finished: success" in lines and written:
-        match = re.fullmatch(r"Wrote (\d+) entries, (\d+\.\d+) h\.", written)
+        match = re.fullmatch(r"Wrote (\d+) entr(?:y|ies), (\d+\.\d+) h\.", written)
         minutes = round(float(match[2]) * 60)
         duration = f"{minutes // 60} h {minutes % 60} min" if minutes >= 60 else f"{minutes} min"
-        return label + f": wrote {match[1]} entries, {duration}."
+        return label + f": wrote {match[1]} {'entry' if match[1] == '1' else 'entries'}, {duration}."
     if "Run finished: success" in lines:
         return label + ": completed."
     errors = "\n".join(line for line in lines if line.startswith("Error: "))

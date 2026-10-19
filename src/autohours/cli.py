@@ -206,10 +206,10 @@ def _run(args):
             created, skipped = sync(destination, result.blocks, start, end, args.write, summary)
             if args.write:
                 print(f"Created {created}, skipped {skipped} (already logged).")
-                print(f"Wrote {created} entries, {summary['hours']:.2f} h.")
+                print(f"Wrote {created} {'entry' if created == 1 else 'entries'}, {summary['hours']:.2f} h.")
             else:
                 print(f"Would create {created}, would skip {skipped} (already logged). Nothing written. Use --write to write.")
-                print(f"Ready to write: {created} entries, {summary['hours']:.2f} h.")
+                print(f"Ready to write: {created} {'entry' if created == 1 else 'entries'}, {summary['hours']:.2f} h.")
     return 0
 
 

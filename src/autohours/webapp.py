@@ -564,7 +564,7 @@ class Application:
             day = valid_day(data.get("day"))
             review = self.review(day)
             preview = s.command("sync", day)
-            totals = re.search(r"Ready to write: (\d+) entries, ([\d.]+) h\.", preview)
+            totals = re.search(r"Ready to write: (\d+) entr(?:y|ies), ([\d.]+) h\.", preview)
             identifier = secrets.token_urlsafe(16)
             self.previews[day] = identifier
             return {**review, "count": int(totals[1]) if totals else len(review["entries"]),
@@ -583,7 +583,7 @@ class Application:
                 reason = f"{exc} " if str(exc) == OPEN_ELSEWHERE else ""
                 raise InputError(reason + "The write did not finish. Some entries may already be saved. Review this day again before retrying.") from None
             log_event(started + "\n" + self.clean(result) + "\nRun finished: success")
-            summary = re.search(r"Wrote (\d+) entries, ([\d.]+) h\.", result)
+            summary = re.search(r"Wrote (\d+) entr(?:y|ies), ([\d.]+) h\.", result)
             skipped = re.search(r"Created \d+, skipped (\d+)", result)
             message = "Your timesheet was written."
             if summary:

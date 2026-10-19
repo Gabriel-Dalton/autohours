@@ -11,6 +11,8 @@
 
 ### Fixed
 
+- In the downloaded app, `--version` and `--help` started with a stray "Run started" line, and every command printed private log bookkeeping, including a long settings fingerprint. Those lines now go only to the private run log.
+- One written entry was reported as "1 entries" in the terminal and on Home's last morning run.
 - The line at the bottom of every screen sat outside the page's landmarks, so screen reader users moving by region skipped it. It is now the page footer. An automated accessibility check (axe) finds no issues on any screen of the app or the website.
 - After adding or removing time away, keyboard focus jumped to the top of the page. It now returns to the Time away section.
 - When a Clockify rate cannot be set because of the currency, the message now says what to do next.

@@ -234,6 +234,16 @@ def test_entry_routes_no_args_cli_and_frozen_logs(tmp_path, monkeypatch):
     assert "Run finished: success" in next(tmp_path.glob("*.log")).read_text()
 
 
+@pytest.mark.parametrize("flag", ["--version", "--help"])
+def test_packaged_app_help_and_version_print_only_their_answer(flag, tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(runlog, "log_directory", lambda: tmp_path)
+    monkeypatch.setattr(entry.sys, "frozen", True, raising=False)
+    assert entry.main([flag]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("autohours " if flag == "--version" else "usage:") and "Run started" not in out
+    assert not list(tmp_path.glob("*.log"))
+
+
 def test_failed_unattended_command_is_logged_without_traceback(tmp_path, monkeypatch):
     monkeypatch.setattr(runlog, "log_directory", lambda: tmp_path / "logs")
     config = tmp_path / "invalid.toml"
