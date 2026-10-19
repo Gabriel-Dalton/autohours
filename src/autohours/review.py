@@ -169,6 +169,26 @@ def minutes_text(minutes):
     return f"{whole // 60} h {whole % 60} min" if whole >= 60 else f"{whole} min"
 
 
+REPORT_LABELS = {**LABELS, "worked": "worked", "counted-break": "short breaks counted",
+                 "unmatched": "no client", "excluded-away": "time away left out"}
+
+
+def long_date(day):
+    return f"{day.strftime('%A')}, {day.day} {day.strftime('%B %Y')}"
+
+
+def report_reasons(row):
+    values = defaultdict(float)
+    for s in row.segments:
+        values[s.kind] += s.minutes
+    parts = [f"{REPORT_LABELS[kind].capitalize()} {minutes_text(minutes)}" for kind, minutes in values.items()]
+    if row.rounding:
+        parts.append(f"Rounding {'added' if row.rounding > 0 else 'removed'} {minutes_text(abs(row.rounding))}")
+    if row.held:
+        parts.append(f"Monthly limit held back {minutes_text(row.held)}")
+    return "; ".join(parts)
+
+
 def html_review(result, projects, zone, titles=False, verbose=False):
     segments_all = timeline_segments(result)
     present = [kind for kind in LABELS if any(s.kind == kind for s in segments_all)]
@@ -180,7 +200,7 @@ def html_review(result, projects, zone, titles=False, verbose=False):
            + ('' if titles else ' Window titles are left out of this report.') + '</p>',
            '<p>Monthly limits here count only activity on this computer. Writing also counts time already in your timesheet, so the written total can be lower.</p>',
            '<ul class="legend">']
-    out.extend(f'<li><span class="swatch {kind}" aria-hidden="true"></span>{escape(LABELS[kind].capitalize())}</li>' for kind in present)
+    out.extend(f'<li><span class="swatch {kind}" aria-hidden="true"></span>{escape(REPORT_LABELS[kind].capitalize())}</li>' for kind in present)
     out.append('</ul>')
     groups = defaultdict(list)
     for s in segments_all:
@@ -195,7 +215,7 @@ def html_review(result, projects, zone, titles=False, verbose=False):
     for (day, project), segments in sorted(groups.items(), key=lambda item: (item[0][0], -1 if item[0][1] is None else item[0][1])):
         name = projects[project].name if project is not None else "No client"
         if day != shown_day:
-            out.append(f'<h2>{day.strftime("%A")}, {day.day} {day.strftime("%B %Y")}</h2>')
+            out.append(f'<h2>{long_date(day)}</h2>')
             shown_day = day
         out.append(f'<section><h3>{escape(name)}</h3><div class="track" aria-hidden="true">')
         a = datetime.combine(day, time(), zone).astimezone(timezone.utc)
@@ -230,11 +250,11 @@ def html_review(result, projects, zone, titles=False, verbose=False):
         if local_day != day:
             if day is not None:
                 out.append('</tbody><tbody>')
-            out.append(f'<tr><th colspan="5" scope="rowgroup"><h3>{local_day}</h3></th></tr>')
+            out.append(f'<tr><th colspan="5" scope="rowgroup"><h3>{long_date(local_day)}</h3></th></tr>')
             day = local_day
         activity_span = span(row.start, row.end, zone)
         entry = span(row.entry_start, row.entry_start + timedelta(minutes=row.billed), zone) if row.billed else "Not written"
-        detail = reasons(row)
+        detail = report_reasons(row) if not verbose else reasons(row)
         if titles:
             detail += " | " + " | ".join(sorted({s.title for s in row.segments if s.title}))
         out.append(f'<tr><th scope="row">{escape(projects[row.project].name)}</th><td>{escape(activity_span)}</td><td>{escape(entry)}</td><td>{minutes_text(row.billed)}</td><td>{escape(detail)}</td></tr>')

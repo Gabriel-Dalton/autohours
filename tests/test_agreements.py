@@ -98,7 +98,7 @@ def test_review_dates_are_headings_and_times_are_local(event, projects, settings
     html = html_review(result, projects, zone)
     assert "2026-10-16\n02:00 to 02:30" in text
     assert "Entry: 02:00 to 02:27" in text
-    assert "<h3>2026-10-16</h3>" in html and "02:00 to 02:30" in html
+    assert "<h3>Friday, 16 October 2026</h3>" in html and "02:00 to 02:30" in html
     assert "2026-10-16T" not in text + html
 
 
