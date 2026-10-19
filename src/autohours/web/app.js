@@ -339,7 +339,7 @@ function welcome() {
   };
   search.querySelector("input").addEventListener("input", filterZones); filterZones();
   zoneBox.append(search, el("label", {class: "field", for: "timezone"}, el("span", {}, "Time zone"), select));
-  page.append(el("div", {class: "row wrap"}, el("small", {}, `Time zone: ${friendly} (${state.timezone})`),
+  page.append(el("div", {class: "row wrap timezone-row"}, el("small", {}, `Time zone: ${friendly} (${state.timezone})`),
     button("Change", () => { zoneBox.hidden = false; search.querySelector("input").focus(); }, "text-button")), zoneBox);
   foot("Get started", async () => { state.timezone = select.value; await api("timezone", {timezone: state.timezone}); activityWatch(); });
   page.parentElement.append(document.querySelector("#welcome-preview").content.cloneNode(true));
