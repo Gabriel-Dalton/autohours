@@ -101,7 +101,7 @@ def run_setup(answers, path, secrets=(), add=False):
 
 
 def agreement(billing="4", rate="", currency=""):
-    return [billing, rate, currency, "0", "no", "1", ""]
+    return [billing, *([rate, currency] if billing == "1" else []), "0", "no", "1", ""]
 
 
 def csv_answers(path):
@@ -283,10 +283,13 @@ def test_config_changed_during_questions_is_not_overwritten(tmp_path, services):
 
 
 def test_agreement_questions_validate_and_keep_exact_choices():
-    replies = iter(["3", "nan", "125.50", "badcurrency", "cad", "-1", "5", "yes", "3", "2", "40"])
+    replies = iter(["1", "nan", "125.50", "badcurrency", "cad", "-1", "5", "yes", "3", "2", "40"])
     policy = wizard.ask_agreement(wizard.Prompts(lambda _: next(replies)))
-    assert policy == {"billing": "retainer", "rate": 125.5, "currency": "CAD", "count_breaks_up_to_minutes": 5,
+    assert policy == {"billing": "hourly", "rate": 125.5, "currency": "CAD", "count_breaks_up_to_minutes": 5,
                       "count_calls_when_away": True, "round_to_minutes": 15, "rounding": "up", "monthly_cap_hours": 40}
+    replies = iter(["3", "0", "no", "1", ""])
+    assert wizard.ask_agreement(wizard.Prompts(lambda _: next(replies))) == {
+        "billing": "retainer", "count_breaks_up_to_minutes": 0, "count_calls_when_away": False, "round_to_minutes": 0, "rounding": "nearest"}
 
 
 def test_key_save_windows_does_not_echo_and_failure_is_redacted(monkeypatch):

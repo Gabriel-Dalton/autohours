@@ -10,6 +10,7 @@
 - Align the time zone Change link with its text on small screens.
 - Switch an existing setup between a spreadsheet and Clockify without losing clients, activity or billing. Before, the app asked you to remove every client first, on a screen you could not reach.
 - When a client's Clockify project has been archived, renamed or deleted, say which client and how to fix it, instead of listing project IDs.
+- The terminal setup only asks for an hourly rate and currency for hourly clients, like the app, and lists activity in hours and minutes.
 - Clear the "Open ActivityWatch" error as soon as ActivityWatch is detected.
 - Show the Workspace step only when you have more than one Clockify workspace, so the step count no longer changes after connecting.
 - When ActivityWatch has more than one computer, ask you to choose one instead of saying ActivityWatch is not open.

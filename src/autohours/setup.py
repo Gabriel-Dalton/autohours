@@ -282,7 +282,9 @@ def picked_rules(p, items, name):
           "An app rule includes every use of that app. Use a title keyword for shared apps.")
     for i, ((kind, text), minutes) in enumerate(items, 1):
         label = "website" if kind == "url" else kind
-        p.say(f"  {i}. {label}: {text[:85]}{'...' if len(text) > 85 else ''} ({minutes:.1f} min)")
+        whole = round(minutes)
+        length = f"{whole // 60} h {whole % 60} min" if whole >= 60 else f"{whole} min"
+        p.say(f"  {i}. {label}: {text[:85]}{'...' if len(text) > 85 else ''} ({length})")
     p.say("These categories overlap; their times must not be added together.")
     def picks(value):
         try:
@@ -314,17 +316,19 @@ def ask_agreement(p):
     billing = ("hourly", "flat", "retainer", "none")[p.choose("How is this project billed?",
                ["Hourly", "Flat monthly", "Retainer with cap", "Not billed"])]
     result = {"billing": billing}
-    p.say("Flat monthly and retainer agreements track time without calculating an hourly charge.")
-    rate = p.ask("Agreed hourly rate (leave blank to skip)", validate=lambda v: number(v, optional=True))
-    if rate is not None:
-        result["rate"] = rate
-    def currency(value):
-        if value and not re.fullmatch(r"[A-Za-z]{3}", value):
-            raise ValueError("Enter a three-letter currency code, such as CAD, or leave blank to skip.")
-        return value.upper()
-    unit = p.ask("Agreed currency (leave blank to skip)", validate=currency)
-    if unit:
-        result["currency"] = unit
+    if billing in ("flat", "retainer"):
+        p.say("Flat monthly and retainer agreements track time without calculating an hourly charge.")
+    if billing == "hourly":
+        rate = p.ask("Agreed hourly rate (leave blank to skip)", validate=lambda v: number(v, optional=True))
+        if rate is not None:
+            result["rate"] = rate
+        def currency(value):
+            if value and not re.fullmatch(r"[A-Za-z]{3}", value):
+                raise ValueError("Enter a three-letter currency code, such as CAD, or leave blank to skip.")
+            return value.upper()
+        unit = p.ask("Agreed currency (leave blank to skip)", validate=currency)
+        if unit:
+            result["currency"] = unit
     result["count_breaks_up_to_minutes"] = p.ask("Count short breaks up to how many minutes?", 0, lambda v: number(v, whole=True))
     p.say("The break limit includes exactly that many minutes. Only observed away gaps inside a merged block count.")
     p.say("Calls may look like away time when you are listening. Counting them still requires a matching project, "
