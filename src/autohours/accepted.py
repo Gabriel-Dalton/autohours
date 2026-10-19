@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, time, timezone
 import json
 import os
+from pathlib import Path
 import tempfile
 import tomllib
 from uuid import uuid4
@@ -39,6 +40,8 @@ def load(config):
                 raise ValueError
             if not isinstance(row.get("start"), str) or not isinstance(row.get("end"), str):
                 raise ValueError
+            if row.get("project") not in names:
+                continue  # A client removed from the settings no longer has time to count.
             item = Accepted(row["id"], timestamp(row["start"]), timestamp(row["end"]),
                             names.index(row["project"]), row.get("note", ""))
             if not isinstance(item.id, str) or not item.id or not isinstance(item.note, str) or item.end <= item.start:
@@ -90,6 +93,29 @@ def add(config, day, start, end, project, note=""):
     with path_for(config).open("a", encoding="utf-8") as stream:
         stream.write(_serialize(item, config))
     return item
+
+
+def rename_projects(config_path, renames):
+    """Carry accepted time over when clients are renamed; old name to new name."""
+    path = Path(config_path).resolve().with_name("autohours.accepted.toml")
+    if not renames or not path.exists():
+        return
+    raw = tomllib.loads(path.read_text(encoding="utf-8"))
+    rows = raw.get("accepted", [])
+    if not any(row.get("project") in renames for row in rows):
+        return
+    text = ""
+    for row in rows:
+        row = {**row, "project": renames.get(row.get("project"), row.get("project"))}
+        text += "\n[[accepted]]\n" + "".join(f"{key} = {json.dumps(value, ensure_ascii=False)}\n" for key, value in row.items())
+    handle, temporary = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as stream:
+            stream.write(text)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
 def remove(config, identifier):

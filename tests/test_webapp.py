@@ -302,6 +302,22 @@ def test_time_away_is_added_listed_validated_and_removed(call, app, tmp_path):
         call("offline", {"id": block["id"]}, "DELETE")
 
 
+def test_time_away_follows_a_renamed_client_and_never_breaks_reviews(call, app, tmp_path):
+    csv_setup(call, tmp_path)
+    call("save", {})
+    day = str((datetime.now(timezone.utc) - timedelta(days=2)).date())
+    call("offline", {"day": day, "client": "Acme Corp", "start": "10:00", "end": "11:00"})
+    projects = call("state")["projects"]
+    projects[0]["name"] = "Acme Inc"
+    call("projects", {"projects": projects})
+    call("save", {})
+    assert [b["client"] for b in call(f"offline?day={day}")["blocks"]] == ["Acme Inc"]
+    accepted_file = tmp_path / "autohours.accepted.toml"
+    accepted_file.write_text(accepted_file.read_text(encoding="utf-8").replace("Acme Inc", "Removed client"), encoding="utf-8")
+    assert call(f"offline?day={day}")["blocks"] == []
+    assert "entries" in call(f"review?day={day}")
+
+
 def test_switching_destination_keeps_clients_and_drops_the_old_link(call, app, tmp_path):
     csv_setup(call, tmp_path)
     app.session.raw["projects"][0]["destination_project"] = "old-id"

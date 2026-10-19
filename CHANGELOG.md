@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Renaming or removing a client after adding time away for it stopped every review, write and morning run with "Invalid accepted time". Time away now follows a renamed client, and time away for a removed client is ignored.
+- The website and README said every day is reviewed before it is written; they now say Every morning writes on its own once you turn it on.
+
 ## 1.0.4
 
 Log the work that happens away from your desk, set up several clients faster, and meet autohours' new website.

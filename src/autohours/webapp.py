@@ -140,6 +140,7 @@ class Application:
         self.workspace_name = ""
         self.connected_name = ""
         self.project_ids = [secrets.token_urlsafe(12) for _ in session.raw["projects"]]
+        self.saved_names = dict(zip(self.project_ids, (row["name"] for row in session.raw["projects"])))
         if session.original is None:
             session.raw["timezone"] = setup.detected_timezone() or "UTC"
             session.raw["destination"] = {"type": "csv", "path": str(Path.home() / "Documents/autohours-timesheet.csv")}
@@ -412,6 +413,7 @@ class Application:
         if route == ("POST", "/api/reset"):
             self.session = desktop.Session(s.path)
             self.project_ids = [secrets.token_urlsafe(12) for _ in self.session.raw["projects"]]
+            self.saved_names = dict(zip(self.project_ids, (row["name"] for row in self.session.raw["projects"])))
             self.invalidate()
             return {"ok": True}
         if route == ("POST", "/api/timezone"):
@@ -518,7 +520,11 @@ class Application:
                     raise InputError(f"Pick at least one activity for {row['name']}.", f"project-{i}")
                 if not row.get("agreement", {}).get("billing"):
                     raise InputError("Choose how you bill this client.", f"billing-{i}")
+            renames = {self.saved_names[pid]: row["name"] for pid, row in zip(self.project_ids, s.raw["projects"])
+                       if pid in self.saved_names and self.saved_names[pid] != row["name"]}
             s.save()
+            accepted.rename_projects(s.path, renames)
+            self.saved_names = dict(zip(self.project_ids, (row["name"] for row in s.raw["projects"])))
             if s.raw["destination"]["type"] == "clockify" and s.http:
                 s.remote = setup.remote_projects(s.http, s.raw["destination"]["workspace"])
             self.saved_key = self.saved_key or bool(self.secrets)

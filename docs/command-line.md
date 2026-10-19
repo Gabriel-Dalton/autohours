@@ -127,7 +127,7 @@ autohours rates
 autohours rates --apply
 ```
 
-Accepted time is your explicit confirmation of work regardless of AFK. It is saved in `autohours.accepted.toml` beside your config. Use local `HH:MM` times on one date; repeated DST times need an offset such as `01:30-07:00`. Overlapping accepted blocks are rejected. Acceptance replaces overlapping observed evidence, so time is counted once. Notes stay local and never become a destination description. Removing acceptance does not remove destination entries. Existing destination overlaps still win.
+Accepted time is your explicit confirmation of work regardless of AFK. It is saved in `autohours.accepted.toml` beside your config. Use local `HH:MM` times on one date; repeated DST times need an offset such as `01:30-07:00`. Overlapping accepted blocks are rejected. Acceptance replaces overlapping observed evidence, so time is counted once. Notes stay local and never become a destination description. Removing acceptance does not remove destination entries. Renaming a client in the desktop app renames its accepted time too; accepted time for a client that is no longer in your settings is ignored. Existing destination overlaps still win.
 
 Preview and review share the same output: billed blocks with explanations, filtered time per project, the top 10 unmatched apps by total time, then totals. Use `--verbose` for filtered blocks and individual activity segments. Both commands accept `--titles` to include private window titles and group unmatched time by app and title. Blocks show real spans, destination entry times, worked and billed minutes, excluded interruptions, counted breaks, calls, accepted time, rounding and caps. Hourly totals show rate x hours = amount, without combining currencies.
 
