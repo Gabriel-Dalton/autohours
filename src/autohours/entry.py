@@ -39,7 +39,9 @@ def main(argv=None):
             with logging():
                 if parsed is not None:
                     record("Run config: " + config_id(config_path(parsed.config)))
-                    kind = "nightly" if parsed.command == "sync" and parsed.dates == ["yesterday"] and parsed.write else "manual"
+                    # The schedule runs without a terminal; someone typing the same command is a manual run.
+                    typed = sys.stdin is not None and sys.stdin.isatty()
+                    kind = "nightly" if parsed.command == "sync" and parsed.dates == ["yesterday"] and parsed.write and not typed else "manual"
                     record("Run kind: " + kind)
                 result = cli.main(args)
                 record(f"Run finished: {'success' if result == 0 else 'needs attention'}")

@@ -234,6 +234,16 @@ def test_entry_routes_no_args_cli_and_frozen_logs(tmp_path, monkeypatch):
     assert "Run finished: success" in next(tmp_path.glob("*.log")).read_text()
 
 
+@pytest.mark.parametrize("typed, kind", [(True, "manual"), (False, "nightly")])
+def test_a_typed_morning_command_is_a_manual_run(typed, kind, tmp_path, monkeypatch):
+    monkeypatch.setattr(entry.cli, "main", lambda args: 0)
+    monkeypatch.setattr(runlog, "log_directory", lambda: tmp_path)
+    monkeypatch.setattr(entry.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(entry.sys, "stdin", type("Stdin", (), {"isatty": lambda self: typed})())
+    assert entry.main(["sync", "yesterday", "--write"]) == 0
+    assert f"Run kind: {kind}" in next(tmp_path.glob("*.log")).read_text()
+
+
 @pytest.mark.parametrize("flag", ["--version", "--help"])
 def test_packaged_app_help_and_version_print_only_their_answer(flag, tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(runlog, "log_directory", lambda: tmp_path)

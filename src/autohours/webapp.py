@@ -532,8 +532,13 @@ class Application:
             renames = {self.saved_names[pid]: row["name"] for pid, row in zip(self.project_ids, s.raw["projects"])
                        if pid in self.saved_names and self.saved_names[pid] != row["name"]}
             removed = {name for pid, name in self.saved_names.items() if pid not in self.project_ids}
-            # A client removed and added back under the same name in one sitting is still that client.
-            removed -= {row["name"] for pid, row in zip(self.project_ids, s.raw["projects"]) if pid not in self.saved_names}
+            # A client removed and added back under the same name in one sitting is still that client,
+            # even with different capitals; its time away follows the new spelling.
+            added = {row["name"].casefold(): row["name"] for pid, row in zip(self.project_ids, s.raw["projects"]) if pid not in self.saved_names}
+            for name in [n for n in removed if n.casefold() in added]:
+                removed.discard(name)
+                if added[name.casefold()] != name:
+                    renames[name] = added[name.casefold()]
             try:
                 time_away = accepted.plan_client_changes(s.path, renames, {row["name"] for row in s.raw["projects"]}, removed)
             except UserError:
@@ -677,17 +682,19 @@ class Server(ThreadingHTTPServer):
         self.token = secrets.token_urlsafe(32)
         self.bootstrap = secrets.token_urlsafe(32)
         self.bootstrap_lock = threading.Lock()
+        self.show_request = None
         self.first_timeout, self.heartbeat_timeout = first_timeout, heartbeat_timeout
-        self.started = time.monotonic()
+        self.started = self.bootstrap_started = time.monotonic()
         self.heartbeat = None
         self.stopping = threading.Event()
         super().__init__(("127.0.0.1", 0), Handler)
         self.host = f"127.0.0.1:{self.server_port}"
         self.origin = "http://" + self.host
         self.url = self.origin + "/#b=" + self.bootstrap
+        self.used_codes = [self.bootstrap]
 
     def clean_error(self, message):
-        for secret in (self.token, self.url.split("#b=", 1)[1]):
+        for secret in (self.token, *self.used_codes):
             message = message.replace(secret, "[private]")
         return self.app.clean(message)
 
@@ -702,7 +709,7 @@ class Server(ThreadingHTTPServer):
     def redeem_bootstrap(self, code):
         with self.bootstrap_lock:
             if (not isinstance(code, str) or self.bootstrap is None
-                    or time.monotonic() - self.started >= 120
+                    or time.monotonic() - self.bootstrap_started >= 120
                     or not hmac.compare_digest(code.encode("utf-8", errors="surrogatepass"), self.bootstrap.encode("ascii"))):
                 return False
             self.bootstrap = None
@@ -717,8 +724,23 @@ class Server(ThreadingHTTPServer):
             self.stopping.set()
             monitor.join(timeout=1)
 
+    def reopen(self):
+        """Open another window for this running app, with a fresh one-time code."""
+        with self.bootstrap_lock:
+            self.bootstrap = secrets.token_urlsafe(32)
+            self.bootstrap_started = time.monotonic()
+            self.used_codes.append(self.bootstrap)
+            self.url = self.origin + "/#b=" + self.bootstrap
+        open_window(self.url)
+
     def watch_lifetime(self):
         while not self.stopping.wait(0.05):
+            if self.show_request is not None and self.show_request.exists():
+                try:
+                    self.show_request.unlink()
+                except OSError:
+                    pass
+                self.reopen()
             last = self.heartbeat
             if time.monotonic() - (last if last is not None else self.started) > (self.heartbeat_timeout if last is not None else self.first_timeout):
                 self.shutdown()
@@ -915,7 +937,39 @@ def startup_alert(message):
         pass
 
 
+def instance_files(config):
+    """The marker a running app leaves, and the file a second launch writes to ask it for a window."""
+    folder = user_config_dir() / "window"
+    key = runlog.config_id(config)[:16]
+    return folder / f"running-{key}", folder / f"show-{key}"
+
+
+def ask_running_app(config, wait=3.0):
+    """True when an app for these settings is already running and opened a window for us."""
+    running, request = instance_files(config)
+    if not running.exists():
+        return False
+    try:
+        request.write_text("show", encoding="utf-8")
+    except OSError:
+        return False
+    deadline = time.monotonic() + wait
+    while time.monotonic() < deadline:
+        if not request.exists():
+            return True
+        time.sleep(0.05)
+    # Nobody answered: the marker was left by an app that did not close cleanly.
+    for path in (request, running):
+        try:
+            path.unlink()
+        except OSError:
+            pass
+    return False
+
+
 def launch(explicit=None):
+    if not os.environ.get("AUTOHOURS_NO_WINDOW") and ask_running_app(config_path(explicit).resolve()):
+        return 0
     try:
         server = Server(desktop.Session(explicit))
     except UserError as exc:
@@ -923,6 +977,14 @@ def launch(explicit=None):
         raise
     except OSError:
         raise UserError("Could not open the local app. Check that your computer allows local connections.") from None
+    running = None
+    if not os.environ.get("AUTOHOURS_NO_WINDOW"):
+        running, server.show_request = instance_files(server.app.session.path)
+        try:
+            running.parent.mkdir(parents=True, exist_ok=True)
+            running.write_text(str(os.getpid()), encoding="utf-8")
+        except OSError:
+            running = server.show_request = None  # Without the marker a second launch simply opens a second app.
     with server:
         if sys.stdout is not None:
             print("Open autohours: " + server.url, flush=True)
@@ -933,4 +995,10 @@ def launch(explicit=None):
             server.serve_forever()
         except KeyboardInterrupt:
             pass
+        finally:
+            if running is not None:
+                try:
+                    running.unlink()
+                except OSError:
+                    pass
     return 0

@@ -352,6 +352,11 @@ def test_a_client_removed_and_added_back_keeps_its_time_away(call, app, tmp_path
     call("agreements", {"agreements": [{"billing": "none"}]})
     assert "message" not in call("save", {})
     assert len(call(f"offline?day={day}")["blocks"]) == 1
+    [old] = call("state")["projects"]
+    call("projects", {"projects": [{**{k: v for k, v in old.items() if k != "id"}, "name": "acme corp"}]})
+    call("agreements", {"agreements": [{"billing": "none"}]})
+    assert "message" not in call("save", {})
+    assert [b["client"] for b in call(f"offline?day={day}")["blocks"]] == ["acme corp"]
 
 
 def test_time_away_rows_that_are_not_plain_text_are_reported_not_crashed(tmp_path):
@@ -448,9 +453,36 @@ def test_early_refusals_still_answer_requests_with_a_body(server_factory, app):
             assert http(server, "/api/save", body)[0] == 409
 
 
+def test_a_second_launch_brings_back_a_window_from_the_running_app(server_factory, tmp_path, monkeypatch):
+    monkeypatch.setattr(webapp, "user_config_dir", lambda: tmp_path / "config")
+    opened = []
+    monkeypatch.setattr(webapp, "open_window", opened.append)
+    server, _ = server_factory()
+    first = server.bootstrap
+    assert http(server, "/api/session", {"bootstrap": first}, token=False)[0] == 200
+    running, server.show_request = webapp.instance_files(server.app.session.path)
+    running.parent.mkdir(parents=True)
+    running.write_text("1")
+    assert webapp.ask_running_app(server.app.session.path, wait=5) is True
+    [url] = opened
+    code = url.split("#b=", 1)[1]
+    assert code != first and http(server, "/api/session", {"bootstrap": first}, token=False)[0] == 403
+    assert http(server, "/api/session", {"bootstrap": code}, token=False)[0] == 200
+
+
+def test_a_stale_running_marker_is_cleared_and_the_launch_continues(tmp_path, monkeypatch):
+    monkeypatch.setattr(webapp, "user_config_dir", lambda: tmp_path)
+    running, request = webapp.instance_files(tmp_path / "autohours.toml")
+    running.parent.mkdir(parents=True)
+    running.write_text("1")
+    assert webapp.ask_running_app(tmp_path / "autohours.toml", wait=0.2) is False
+    assert not running.exists() and not request.exists()
+    assert webapp.ask_running_app(tmp_path / "autohours.toml", wait=0.2) is False
+
+
 def test_expired_bootstrap_is_rejected(server_factory):
     server, _ = server_factory(first_timeout=300)
-    server.started -= 121
+    server.bootstrap_started -= 121
     assert http(server, "/api/session", {"bootstrap": server.bootstrap}, token=False)[0] == 403
 
 

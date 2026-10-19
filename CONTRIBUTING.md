@@ -33,3 +33,7 @@ Pushing a `v*` tag runs tests and builds both downloads. The workflow attaches t
 ## Credits
 
 The desktop app follows the IBM Carbon Design System v11. Bundled IBM Plex Sans fonts are licensed under the [SIL Open Font License](src/autohours/web/fonts/OFL.txt). Bundled Carbon icons are licensed under the [Apache License 2.0](src/autohours/web/icons-LICENSE.txt).
+
+## Website
+
+The website lives in `site/` as plain HTML, CSS and JavaScript with no build step. Vercel deploys it from `main` when a commit changes something in `site/`; commits that only touch the app are skipped.
