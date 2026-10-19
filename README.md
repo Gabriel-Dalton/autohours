@@ -9,7 +9,7 @@
 
 Time trackers like Clockify only work if you remember to press start when you begin, and stop when you switch clients or step away. Miss either and your hours are wrong, so you end up rebuilding the week from memory.
 
-autohours looks at what you did on your computer, works out which client each piece belongs to, leaves out the time you were away, and fills in your timesheet in Clockify or a spreadsheet. You check it before anything is saved.
+autohours looks at what you did on your computer, works out which client each piece belongs to, leaves out the time you were away, and fills in your timesheet in Clockify or a spreadsheet. You review each day before it is written, or let it fill in yesterday every morning.
 
 https://github.com/user-attachments/assets/870e3923-da51-4687-8dcd-2c481f40b9cf
 
@@ -77,7 +77,7 @@ curl -fsSL https://raw.githubusercontent.com/Gabriel-Dalton/autohours/main/insta
 
 - **Window titles and website addresses never leave your computer.** Clockify or the spreadsheet only gets the client, your own description, the times and whether it is billable.
 - No account, no tracking, no cloud service.
-- Nothing is saved until you confirm it, and existing entries are never changed or deleted.
+- Nothing is written until you confirm a day or turn on Every morning, and existing entries are never changed or deleted.
 
 ## Known limitations
 
