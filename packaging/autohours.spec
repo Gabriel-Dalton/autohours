@@ -25,6 +25,6 @@ if mac:
     collection = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name="autohours")
     app = BUNDLE(collection, name="autohours.app", icon=str(icon),
                  bundle_identifier="org.autohours.desktop",
-                 info_plist={"NSHighResolutionCapable": True, "CFBundleShortVersionString": "1.0.4"})
+                 info_plist={"NSHighResolutionCapable": True, "CFBundleShortVersionString": "1.0.5"})
 else:
     exe = EXE(pyz, a.scripts, a.binaries, a.datas, [], **options)

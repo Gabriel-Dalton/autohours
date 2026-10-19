@@ -1,6 +1,14 @@
 # Changelog
 
-## Unreleased
+## 1.0.5
+
+A reliability release: time away now survives renaming and removing clients, Windows never turns a busy moment into a network error, and opening autohours twice brings back the window you already had.
+
+### Highlights
+
+- **Time away you can trust.** Renaming a client carries its time away to the new name. Removing a client removes its time away too, and the app says so. Removing one entry never touches any other.
+- **Steadier on Windows.** A click while autohours is still busy now waits and retries instead of failing, and refreshing the window on a busy computer no longer claims the app has closed.
+- **One autohours at a time.** Opening it again brings back a window for the running app.
 
 ### Improved
 
@@ -8,34 +16,30 @@
 - The app shows its version at the bottom of every screen.
 - An unexpected error names the folder that holds the private run log.
 - Time away on the day the clocks change says why a time in that hour cannot be used, and an impossible time such as 24:00 asks for hours and minutes.
+- When a Clockify rate cannot be set because of the currency, the message says what to do next.
 - `autohours --help` describes every command; six were missing from the list.
 
 ### Fixed
 
-- Typing `autohours sync yesterday --write` in a terminal no longer shows on Home as the last morning run; only the schedule's own runs do.
+- Renaming or removing a client after adding time away for it stopped every review, write and morning run with "Invalid accepted time". Time away now follows a renamed client. Removing a client and saving removes its time away too, and the app says so. Removing one time away entry never touches any other. Removing a client and renaming another to its name in the same save keeps each client's own time, and a client removed and added back under the same name keeps its time away.
+- On Windows, an action refused because another was still running could reach the window as a network failure, so the automatic retry never happened. autohours now always answers cleanly, waits a moment before refusing, and two checks that start together no longer turn each other away.
 - On a busy computer, refreshing the window could show "This window has expired" although autohours was still running. The window now retries before deciding the app has closed.
-- After a failed review, the disabled Write button kept the previous day's name. It now names the chosen day straight away, and when Check and finish shows today because yesterday was empty, the button says today.
+- When Check and finish showed today because yesterday was empty, the Write button still said yesterday. It now names the day shown, including after a failed review.
 - Two clients whose names differ only in capitals, such as "Acme Corp" and "acme corp", were allowed. They now count as the same name, in the app and the text setup.
-- In the downloaded app, `--version` and `--help` started with a stray "Run started" line, and every command printed private log bookkeeping, including a long settings fingerprint. Those lines now go only to the private run log.
-- One written entry was reported as "1 entries" in the terminal and on Home's last morning run.
-- The line at the bottom of every screen sat outside the page's landmarks, so screen reader users moving by region skipped it. It is now the page footer. An automated accessibility check (axe) finds no issues on any screen of the app or the website.
+- In the downloaded app, `--version` and `--help` started with a stray "Run started" line, and every command printed private log bookkeeping. Those lines now go only to the private run log.
+- Typing `autohours sync yesterday --write` in a terminal no longer shows on Home as the last morning run; only the schedule's own runs do.
+- One written entry was reported as "1 entries", and a morning run that wrote one entry would have shown as an error on Home.
 - After adding or removing time away, keyboard focus jumped to the top of the page. It now returns to the Time away section.
-- When a Clockify rate cannot be set because of the currency, the message now says what to do next.
-- On Windows, an action refused because another was still running could reach the window as a network failure instead of a "try again" message, so the automatic retry never happened. autohours now always answers cleanly, and two checks that start together no longer turn each other away.
-- At phone width, the notes above the tables in the HTML report were cut off at the edge. They now wrap, and the tables scroll on their own.
+- The line at the bottom of every screen sat outside the page's landmarks, so screen reader users moving by region skipped it. An automated accessibility check (axe) now finds no issues on any screen of the app or the website.
+- At phone width, the notes above the tables in the HTML report were cut off. They now wrap, and the tables scroll on their own.
 - A long client name in the activity list was cut off mid-letter. It now ends in an ellipsis and shows in full on hover.
 - `autohours schedule --remove`, or turning Every morning off after the task was deleted by hand, blamed account permissions when there was simply no schedule. It now says there is nothing to remove.
-- Renaming or removing a client after adding time away for it stopped every review, write and morning run with "Invalid accepted time". Time away now follows a renamed client. Removing a client and saving removes its time away too, and the app says so. Removing one time away entry never touches any other. Removing a client and renaming another to its name in the same save keeps each client's own time. A client removed and added back under the same name before saving keeps its time away, even with different capitals.
-- A quick second click while an earlier action was still finishing could show "Another check or save is still running". The app now waits a moment and retries.
-- The website and README said every day is reviewed before it is written; they now say Every morning writes on its own once you turn it on.
 
 ### Docs
 
-- The website's removal answer showed the Windows settings folder as `%APPDATA%utohours`; it now reads `%APPDATA%utohours`. The scheduling guide calls the feature Every morning, like the app.
-- A mistyped website address shows a page that leads back home, instead of a bare error code. On Linux, the website's button opens the list of downloads instead of offering one that does not run there.
-- Without JavaScript, the website shows all three walkthrough steps instead of an empty space.
-- The command-line guide mentions time away for offline work.
-- The README says where settings live and how to remove autohours cleanly, starting with turning off Every morning.
+- The README and website say plainly that Every morning writes on its own once you turn it on, where your settings live, and how to remove autohours cleanly.
+- The website has a page for mistyped addresses, shows the full walkthrough without JavaScript, and on Linux points to the list of downloads. Its removal answer shows the Windows settings folder correctly as `%APPDATA%\autohours`.
+- The scheduling guide calls the feature Every morning, like the app, and the command-line guide mentions time away. The contributor guide explains how the website deploys.
 
 ## 1.0.4
 
