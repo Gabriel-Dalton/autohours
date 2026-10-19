@@ -6,7 +6,7 @@
 
 - The app shows its version at the bottom of every screen.
 - An unexpected error names the folder that holds the private run log.
-- Time away on the day the clocks change says why a time in that hour cannot be used.
+- Time away on the day the clocks change says why a time in that hour cannot be used, and an impossible time such as 24:00 asks for hours and minutes.
 - `autohours --help` describes every command; six were missing from the list.
 
 ### Fixed

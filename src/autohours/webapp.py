@@ -376,8 +376,14 @@ class Application:
         times = {}
         for key, label in (("start", "From"), ("end", "To")):
             value = data.get(key)
-            if not isinstance(value, str) or not re.fullmatch(r"\d{2}:\d{2}", value):
+            if not isinstance(value, str) or not value:
                 raise InputError(f"Enter the {label.lower()} time.", f"offline-{key}")
+            try:
+                if not re.fullmatch(r"\d{2}:\d{2}", value):
+                    raise ValueError
+                datetime.strptime(value, "%H:%M")
+            except ValueError:
+                raise InputError(f"Enter the {label.lower()} time as hours and minutes, such as 14:30.", f"offline-{key}") from None
             times[key] = value
         note = data.get("note", "")
         if not isinstance(note, str) or len(note) > 200:

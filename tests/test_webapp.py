@@ -297,6 +297,8 @@ def test_time_away_is_added_listed_validated_and_removed(call, app, tmp_path):
         call("offline", {"day": day, "client": "Acme Corp", "start": "", "end": "11:00"})
     with pytest.raises(webapp.InputError, match="end must be after"):
         call("offline", {"day": day, "client": "Acme Corp", "start": "11:00", "end": "10:00"})
+    with pytest.raises(webapp.InputError, match="to time as hours and minutes"):
+        call("offline", {"day": day, "client": "Acme Corp", "start": "23:00", "end": "24:00"})
     call("offline", {"day": day, "client": "Acme Corp", "start": "10:00", "end": "11:00", "note": "  Call   with Acme "})
     [block] = call(f"offline?day={day}")["blocks"]
     assert (block["start"], block["end"], block["client"], block["note"]) == ("10:00", "11:00", "Acme Corp", "Call with Acme")
@@ -306,6 +308,14 @@ def test_time_away_is_added_listed_validated_and_removed(call, app, tmp_path):
     assert call(f"offline?day={day}")["blocks"] == []
     with pytest.raises(webapp.InputError, match="already removed"):
         call("offline", {"id": block["id"]}, "DELETE")
+
+
+def test_time_away_in_the_missing_clock_change_hour_says_why(call, app, tmp_path):
+    csv_setup(call, tmp_path)
+    call("timezone", {"timezone": "America/Vancouver"})
+    call("save", {})
+    with pytest.raises(webapp.InputError, match="clocks changed"):
+        call("offline", {"day": "2026-03-08", "client": "Acme Corp", "start": "02:30", "end": "03:30"})
 
 
 def test_time_away_follows_a_renamed_client_and_never_breaks_reviews(call, app, tmp_path):
