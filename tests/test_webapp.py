@@ -310,6 +310,12 @@ def test_time_away_is_added_listed_validated_and_removed(call, app, tmp_path):
         call("offline", {"id": block["id"]}, "DELETE")
 
 
+def test_client_names_differing_only_in_capitals_are_duplicates(app):
+    app.session.add_project("Acme Corp", "Acme")
+    with pytest.raises(webapp.UserError, match="not already in your project list"):
+        app.session.add_project("acme corp ", "Acme again")
+
+
 def test_time_away_in_the_missing_clock_change_hour_says_why(call, app, tmp_path):
     csv_setup(call, tmp_path)
     call("timezone", {"timezone": "America/Vancouver"})

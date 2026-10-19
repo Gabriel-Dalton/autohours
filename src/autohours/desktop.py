@@ -165,7 +165,7 @@ class Session:
 
     def add_project(self, name, description, target=None, create=False):
         name, description = setup.nonempty(name.strip()), setup.nonempty(description.strip())
-        if any(p["name"] == name for p in self.raw["projects"]):
+        if any(p["name"].casefold() == name.casefold() for p in self.raw["projects"]):
             raise UserError("Choose a name that is not already in your project list.")
         row = {"name": name, "description": description, "agreement": {}}
         if self.raw["destination"]["type"] == "clockify":

@@ -11,6 +11,7 @@
 
 ### Fixed
 
+- Two clients whose names differ only in capitals, such as "Acme Corp" and "acme corp", were allowed. They now count as the same name, in the app and the text setup.
 - In the downloaded app, `--version` and `--help` started with a stray "Run started" line, and every command printed private log bookkeeping, including a long settings fingerprint. Those lines now go only to the private run log.
 - One written entry was reported as "1 entries" in the terminal and on Home's last morning run.
 - The line at the bottom of every screen sat outside the page's landmarks, so screen reader users moving by region skipped it. It is now the page footer. An automated accessibility check (axe) finds no issues on any screen of the app or the website.

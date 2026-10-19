@@ -512,7 +512,7 @@ class Wizard:
         while True:
             def project_name(value):
                 nonempty(value)
-                if value.lower() != "done" and any(row["name"] == value for row in raw["projects"]):
+                if value.lower() != "done" and any(row["name"].casefold() == value.strip().casefold() for row in raw["projects"]):
                     raise ValueError("That project is already configured. Choose another name.")
                 if value.lower() == "done" and not raw["projects"]:
                     raise ValueError("Add at least one project first.")
