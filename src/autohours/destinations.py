@@ -53,7 +53,7 @@ class Clockify:
                 self.project_ids[p.destination_project] = resolve(projects, p.destination_project, "Project")
             except UserError:
                 raise UserError(f"The Clockify project for {p.name} was not found or is ambiguous. It may have been archived, renamed or deleted. "
-                                "In autohours, open Projects and billing, choose its Clockify project and save; or set destination_project in your settings.") from None
+                                "In autohours, open Clients and billing, choose its Clockify project and save; or set destination_project in your settings.") from None
         for p in self.projects:
             if "monthly_cap_hours" in (p.agreement or {}) or "billing" in (p.agreement or {}):
                 identifier = self.project_ids[p.destination_project]

@@ -272,15 +272,15 @@ class Application:
             seen = set()
             for index, row in enumerate(rows):
                 if not isinstance(row, dict):
-                    raise InputError("Check this project's details.", "project-name")
+                    raise InputError("Check this client's details.", "project-name")
                 name = text_field(row, "name", "Give this project a name.")
                 description = text_field(row, "description", "Add a timesheet description.")
                 old_id = row.get("id")
                 if old_id is not None and (not isinstance(old_id, str) or old_id not in previous_ids):
-                    raise InputError("Your project list changed. Open Projects and billing again.")
+                    raise InputError("Your client list changed. Open Clients and billing again.")
                 old = previous[previous_ids.index(old_id)] if old_id is not None else {}
                 if old_id is not None and old_id in seen:
-                    raise InputError("Each project can appear only once.", "project-name")
+                    raise InputError("Each client can appear only once.", "project-name")
                 seen.add(old_id) if old_id is not None else None
                 s.add_project(name, description, row.get("target"), row.get("create") is True)
                 self.project_ids.append(old_id or secrets.token_urlsafe(12))
@@ -314,7 +314,7 @@ class Application:
         s = self.session
         rows = data.get("agreements")
         if not isinstance(rows, list) or len(rows) != len(s.raw["projects"]):
-            raise InputError("Choose how you bill each project.", "billing-0")
+            raise InputError("Choose how you bill each client.", "billing-0")
         result = []
         for i, values in enumerate(rows):
             if not isinstance(values, dict) or values.get("billing") not in ("hourly", "flat", "retainer", "none"):

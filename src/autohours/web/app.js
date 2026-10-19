@@ -522,7 +522,7 @@ function activityRows() {
   const unassigned = item => !unassignedOnly || !(item.covered || projects.some(p => p.items.includes(item.id)));
   const {visible, total} = activityPage(items, activitySearch, activityExpanded, unassigned);
   for (const item of visible) {
-    const input = el("input", {id: `activity-${item.id}`, type: "checkbox", "aria-label": `Assign ${item.name} to ${project?.name || "a project"}`});
+    const input = el("input", {id: `activity-${item.id}`, type: "checkbox", "aria-label": `Assign ${item.name} to ${project?.name || "a client"}`});
     input.checked = !!project?.items.includes(item.id); input.disabled = !project;
     const badges = el("span", {class: "assigned-projects"});
     const updateBadges = () => badges.replaceChildren(...projects.filter(p => p.items.includes(item.id)).map(p => el("span", {class: "assigned"}, p.name)));
@@ -558,7 +558,7 @@ function closeProjectMenu(focus = false) {
 }
 function renderTabs() {
   const tabs = document.querySelector("#project-tabs"); if (!tabs) return;
-  const list = el("div", {class: "tab-list", role: "tablist", "aria-label": "Choose a project"});
+  const list = el("div", {class: "tab-list", role: "tablist", "aria-label": "Choose a client"});
   tabs.replaceChildren(list);
   projects.forEach((project, i) => {
     const activate = () => { selected = i; renderProject(); document.getElementById(`project-tab-${i}`)?.focus({preventScroll: true}); };
@@ -575,14 +575,14 @@ function renderTabs() {
   const project = projects[selected];
   const more = el("button", {type: "button", id: "project-more", class: "icon-button", "aria-label": `More options for ${project.name}`,
     "aria-controls": "project-menu", "aria-haspopup": "menu", "aria-expanded": "false"}, icon("overflow-menu--vertical"));
-  const menu = el("div", {id: "project-menu", class: "project-actions", role: "menu", "aria-label": "Project actions", hidden: true});
+  const menu = el("div", {id: "project-menu", class: "project-actions", role: "menu", "aria-label": "Client actions", hidden: true});
   const edit = button("Edit details", () => { closeProjectMenu(); document.querySelector("#project-edit").hidden = false; document.querySelector("#rename").focus(); }, "menu-item", "edit");
   const move = button("Move up", async () => {
     closeProjectMenu();
     if (selected > 0) { [projects[selected - 1], projects[selected]] = [projects[selected], projects[selected - 1]]; selected--; await saveProjects(); renderProject(); document.querySelector("#project-more").focus(); }
   }, "menu-item", "arrow--up");
   move.disabled = selected === 0;
-  const remove = button("Remove project", async () => {
+  const remove = button("Remove client", async () => {
     closeProjectMenu(); projects.splice(selected, 1); selected = Math.max(0, selected - 1); await saveProjects(); renderProject();
     (document.querySelector("#project-more") || document.querySelector("#project-name")).focus();
   }, "menu-item danger", "trash-can");
@@ -604,13 +604,13 @@ function renderProject() {
   renderTabs(); activityRows();
   const panel = document.querySelector("#project-panel");
   if (projects.length) { panel?.setAttribute("aria-labelledby", `project-tab-${selected}`); panel?.removeAttribute("aria-label"); }
-  else { panel?.removeAttribute("aria-labelledby"); panel?.setAttribute("aria-label", "Project activity"); }
+  else { panel?.removeAttribute("aria-labelledby"); panel?.setAttribute("aria-label", "Client activity"); }
   const details = document.querySelector("#project-details"); details.replaceChildren();
   const project = projects[selected]; if (!project) return;
   details.id = "project-details";
   const validation = el("div", {id: `project-${selected}`, tabindex: "-1"});
   const menu = el("div", {id: "project-edit", class: "project-edit", hidden: true});
-  menu.append(field("Project name", "rename", project.name), field("Timesheet description", "description", project.description));
+  menu.append(field("Client name", "rename", project.name), field("Timesheet description", "description", project.description));
   menu.append(button("Save details", async () => {
     project.name = value("rename"); project.description = value("description"); await saveProjects();
     if (!projectFailure) { renderProject(); document.querySelector("#project-more").focus(); }
@@ -630,7 +630,7 @@ async function projectsScreen() {
   screen("projects", "What do you work on?", "Add a client or project, then pick the activity that belongs to it.");
   if (state.workspace_name) page.append(el("small", {class: "workspace-note"}, `Using ${state.workspace_name} in Clockify.`));
   const current = generation;
-  const back = editing ? () => editChanged ? confirmation(page, "Leave without saving?", "Your project changes are saved when you continue to billing and choose Save and continue.", "Discard changes", cancelEdit) : cancelEdit()
+  const back = editing ? () => editChanged ? confirmation(page, "Leave without saving?", "Your client changes are saved when you continue to billing and choose Save and continue.", "Discard changes", cancelEdit) : cancelEdit()
     : state.destination.type === "clockify" ? (singleWorkspace ? connect : workspace) : destination;
   let ready = false;
   const add = async () => {
@@ -667,7 +667,7 @@ async function projectsScreen() {
       el("div", {id: "activity-list", class: "activity-list"}),
       el("div", {class: "coverage"}, el("div", {class: "coverage-heading"}, el("span", {}, "Assigned"), el("span", {id: "coverage-percent"})),
         el("progress", {id: "coverage", max: "100", "aria-label": "Activity assigned"}), el("small", {id: "coverage-label", "aria-live": "polite"})));
-    if (items.some(item => item.matches.length > 1)) page.append(el("small", {}, "When activity matches more than one project, the project higher in your list gets the time."));
+    if (items.some(item => item.matches.length > 1)) page.append(el("small", {}, "When activity matches more than one client, the client higher in your list gets the time."));
     renderProject(); updateCoverage(result.coverage);
     ready = true;
   }).catch(error => {
@@ -709,7 +709,7 @@ function billing() {
     calls.querySelector("input").setAttribute("aria-describedby", `calls-help-${i}`);
     group.append(breaksQuestion, el("fieldset", {},
       el("legend", {id: `calls-question-${i}`}, "Count calls when you step away from the keyboard?"),
-      el("p", {id: `calls-help-${i}`, class: "question-help"}, "A Zoom call with no typing can still count when it matches this project."), calls));
+      el("p", {id: `calls-help-${i}`, class: "question-help"}, "A Zoom call with no typing can still count when it matches this client."), calls));
     const quantum = String(a.round_to_minutes ?? 0);
     const roundingOptions = [["0", "No rounding"], ["6", "6 min"], ["15", "15 min"], ["30", "30 min"]];
     if (!roundingOptions.some(o => o[0] === quantum)) roundingOptions.push([quantum, `${quantum} min (saved)`]);
@@ -719,7 +719,7 @@ function billing() {
       "Use the closest interval, or choose to always round up. An entry that runs straight into the next one is not rounded past it.");
     roundingQuestion.append(roundUp);
     group.append(roundingQuestion,
-      el("details", {}, el("summary", {}, "More options"), field("Monthly cap in hours", `monthly_cap_hours-${i}`, a.monthly_cap_hours ?? "", "number", {min: "0", step: "any"})));
+      el("details", {}, el("summary", {}, "More options"), field("Monthly limit in hours", `monthly_cap_hours-${i}`, a.monthly_cap_hours ?? "", "number", {min: "0", step: "any"})));
     page.append(group);
   });
   function collect() {
@@ -831,7 +831,7 @@ function reviewCard(initialDay, fallback = false) {
         const descriptions = result.entries.some(e => e.description !== e.project);
         const fullDate = new Intl.DateTimeFormat(undefined, {weekday: "long", year: "numeric", month: "long", day: "numeric"}).format(new Date(chosen + "T12:00:00"));
         const table = el("table", {}, el("caption", {class: "muted"}, el("strong", {}, "Timesheet entries"), fullDate),
-          el("thead", {}, el("tr", {}, ...["Time", "Project", ...(descriptions ? ["Description"] : []), "Duration"].map(h => el("th", {scope: "col"}, h)))),
+          el("thead", {}, el("tr", {}, ...["Time", "Client", ...(descriptions ? ["Description"] : []), "Duration"].map(h => el("th", {scope: "col"}, h)))),
           el("tbody", {}, ...result.entries.map(e => el("tr", {}, el("td", {}, e.time), el("td", {}, e.project), descriptions ? el("td", {}, e.description) : null, el("td", {}, duration(e.minutes))))));
         results.append(el("div", {class: "table-scroll", tabindex: "0", role: "region", "aria-label": "Timesheet entries, scroll to see all columns"}, table));
       }
@@ -895,7 +895,7 @@ function scheduleCard() {
   const input = switchBox.querySelector("input");
   timeInput.addEventListener("change", () => preview(true));
   section.append(el("div", {class: "schedule-row"}, switchBox, timeField),
-    el("small", {}, "Writes yesterday only. Missed days are not backfilled."));
+    el("small", {}, "Writes yesterday only. Days the computer was off are not filled in later."));
   return section;
 }
 
@@ -971,7 +971,7 @@ async function home() {
     return node;
   }
   page.append(el("div", {class: "tiles"},
-    tile("Projects and billing", "Match activity and manage agreements", el("small", {class: "tile-state"}, `${state.projects.length} ${state.projects.length === 1 ? "project" : "projects"}, ${kinds}`), "folder", async () => { editing = true; editChanged = false; unassignedOnly = false; await projectsScreen(); }),
+    tile("Clients and billing", "Match activity and manage agreements", el("small", {class: "tile-state"}, `${state.projects.length} ${state.projects.length === 1 ? "client" : "clients"}, ${kinds}`), "folder", async () => { editing = true; editChanged = false; unassignedOnly = false; await projectsScreen(); }),
     tile("Every morning", "Set up automatic daily writes", el("small", {id: "morning-state", class: "tile-state"}, state.schedule), "time", () => { morning.hidden = !morning.hidden; if (!morning.hidden) { morning.scrollIntoView({block: "start"}); morning.querySelector("input").focus({preventScroll: true}); } }),
     tile("Settings file", "Open in your text editor", el("small", {class: "tile-state"}, "Saved on this computer"), "document", async () => { await api("settings/open", {}); notice("Your settings file opened in your default editor."); }),
     tile("Run setup again", "Start over with new answers", el("small", {class: "tile-state"}, "Review before saving"), "renew", () => { editing = false; welcome(); })), morning);
