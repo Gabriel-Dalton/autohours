@@ -1,18 +1,29 @@
 # Changelog
 
-## Unreleased
+## 1.0.4
+
+Log the work that happens away from your desk, set up several clients faster, and meet autohours' new website.
+
+### Highlights
+
+- **Time away from the computer.** Add a call, meeting or site visit for a client on Home. It counts as work, and your private note never reaches the timesheet.
+- **A shorter billing screen.** Each client folds into one line that sums up how you bill them, so you can check every client at a glance.
+- **A website.** [autohours.vercel.app](https://autohours.vercel.app) shows what autohours does in a few seconds, with a step-by-step walkthrough, the video and the right download for your computer.
 
 ### New
 
-- **Time away from the computer.** Add calls, meetings or visits away from your desk on Home. They count as work for the client you choose, and the private note you add never reaches the timesheet.
+- **Time away from the computer** on Home: pick the client, the from and to times and an optional note. Overlapping or impossible times get a clear message, and removing one leaves anything already written in your timesheet.
+- **[autohours.vercel.app](https://autohours.vercel.app):** an animated example of activity becoming a timesheet, a scroll-through of the three setup steps, a video player that falls back to an Unmute button when a browser blocks sound, and a download button that picks Windows or Mac. Phones and tablets are told to download on a computer.
 
 ### Improved
 
-- **Shorter billing screen.** With several clients, each one folds into a line that summarises its answers, such as "By the hour, 120 CAD, breaks up to 10 min". The first client still to answer opens, and a client with a missing answer opens to show it.
+- With several clients, the billing screen folds each one into a summary line, such as "By the hour, 120 CAD, breaks up to 10 min". The first client still to answer opens, a client with a missing answer opens to show it, and "Same as" keeps the client you copied into open.
 
 ### Docs
 
-- A website at [autohours.vercel.app](https://autohours.vercel.app), with an animated walkthrough and the video. It has no tracking and strict security headers.
+- Release notes now open with a summary and highlights, followed by New, Improved, Fixed and Docs, and the contributor guide explains the format.
+- The README and desktop app guide cover time away from the computer and link to the website.
+- The website is private by design: no analytics or cookies, strict security headers and a `security.txt`.
 
 ## 1.0.3
 
