@@ -197,6 +197,14 @@ button.text-button { background: transparent; color: var(--link-primary); paddin
 .offline-form { display: grid; gap: var(--spacing-05); max-width: 32rem; margin-top: var(--spacing-03); }
 .offline-form .field { margin: 0; }
 .offline-times > .field { flex: 1; min-width: 8rem; margin: 0; }
+.billing-collapsible { margin-block: 0; border-top: 0; }
+.billing-collapsible:first-of-type { border-top: 1px solid var(--border-subtle-01); }
+.billing-collapsible > summary { min-height: 64px; padding: var(--spacing-05); align-items: center; gap: var(--spacing-05); }
+.billing-heading { display: grid; gap: var(--spacing-02); min-width: 0; }
+.billing-name { font: var(--heading-03, 400 20px/28px "IBM Plex Sans", system-ui, sans-serif); }
+.billing-summary { color: var(--text-secondary); }
+.billing-collapsible > .billing-body { margin: 0; padding: 0 var(--spacing-05) var(--spacing-07); }
+.billing-collapsible[open] > summary { border-bottom: 1px solid var(--border-subtle-01); margin-bottom: var(--spacing-05); }
 .billing-group .copy-agreement { margin: calc(-1 * var(--spacing-03)) 0 var(--spacing-03) calc(-1 * var(--spacing-05)); }
 button.text-button > .icon { position: static; }
 button.text-button > .icon:has(use[href$="#arrow--left"]) { order: -1; }
@@ -275,8 +283,8 @@ legend { padding: 0; }
 .rate-row { display: flex; align-items: flex-end; gap: var(--spacing-05); }
 .rate-row > .muted { line-height: 40px; }
 .rate-row .field { flex: 1; min-width: 128px; }
-.billing-group > fieldset { margin: 0 0 var(--spacing-07); }
-.billing-group > fieldset > legend { font: var(--heading-02); letter-spacing: 0; color: var(--text-primary); margin-bottom: var(--spacing-03); }
+.billing-group > fieldset, .billing-body > fieldset { margin: 0 0 var(--spacing-07); }
+.billing-group > fieldset > legend, .billing-body > fieldset > legend { font: var(--heading-02); letter-spacing: 0; color: var(--text-primary); margin-bottom: var(--spacing-03); }
 .billing-group .question-help { font: var(--body-01); color: var(--text-secondary); margin: 0; padding-bottom: var(--spacing-05); }
 .billing-group .choices { row-gap: 0; }
 .billing-group .choice:nth-of-type(n+3) { margin-top: var(--spacing-03); }

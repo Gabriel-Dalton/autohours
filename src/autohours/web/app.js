@@ -12,8 +12,8 @@ let projectQueue = Promise.resolve(), projectFailure = null, projectRevision = 0
 let primary, keyConnected = false, singleWorkspace = false, editChanged = false, unassignedOnly = false;
 let beforeStepBack = () => {};
 // Unsaved billing answers survive a refresh of this window. Only the billing screen sets this.
-let saveBillingDraft = () => {};
-for (const event of ["input", "change"]) document.querySelector("#page").addEventListener(event, () => { if (step === "billing") saveBillingDraft(); });
+let saveBillingDraft = () => {}, refreshBillingSummaries = () => {};
+for (const event of ["input", "change"]) document.querySelector("#page").addEventListener(event, () => { if (step === "billing") { saveBillingDraft(); refreshBillingSummaries(); } });
 // Explicit local references keep the sprite contract auditable without a build step.
 const iconPaths = {
   "add": "/icons.svg#add",
@@ -681,17 +681,38 @@ async function projectsScreen() {
   await activityReady;
 }
 
+function agreementSummary(a) {
+  const kinds = {hourly: "By the hour", flat: "Flat monthly fee", retainer: "Retainer", none: "Not billed"};
+  if (!a.billing) return "Choose how you bill this client";
+  const parts = [kinds[a.billing] + (a.billing === "hourly" && a.rate !== "" && a.rate != null ? `, ${a.rate} ${a.currency || ""}`.trimEnd() : "")];
+  if (Number(a.count_breaks_up_to_minutes) > 0) parts.push(`breaks up to ${a.count_breaks_up_to_minutes} min`);
+  if (a.count_calls_when_away) parts.push("calls count");
+  if (Number(a.round_to_minutes) > 0) parts.push(`${a.rounding === "up" ? "rounded up" : "rounded"} to ${a.round_to_minutes} min`);
+  if (a.monthly_cap_hours !== "" && a.monthly_cap_hours != null) parts.push(`up to ${a.monthly_cap_hours} h a month`);
+  return parts.join(", ");
+}
+
 function billing() {
   screen("billing", projects.length === 1 ? `How do you bill ${projects[0].name}?` : "How do you bill your clients?", "Use the agreement you have with each client. You can leave the hourly rate empty.");
   projects.forEach((project, i) => {
     const a = project.agreement;
-    const group = card(projects.length > 1 ? project.name : null);
-    group.classList.add("billing-group");
+    // With several clients, each one folds into a line that summarises its answers.
+    const multi = projects.length > 1;
+    const outer = multi ? el("details", {class: "billing-collapsible"}) : card(null);
+    const group = multi ? el("div", {class: "billing-body"}) : outer;
+    outer.classList.add("billing-group");
+    if (multi) {
+      outer.append(el("summary", {}, el("span", {class: "billing-heading"}, el("span", {class: "billing-name"}, project.name),
+        el("small", {class: "billing-summary", id: `billing-summary-${i}`}, agreementSummary(a)))), group);
+      outer.open = !a.billing && !projects.slice(0, i).some(p => !p.agreement.billing);
+    }
     if (i > 0) group.append(button(`Same as ${projects[i - 1].name}`, () => {
       const agreements = collect();
       projects.forEach((p, k) => { p.agreement = agreements[k]; });
       projects[i].agreement = {...agreements[i - 1]};
+      const wasOpen = [...document.querySelectorAll("details.billing-collapsible")].map(d => d.open);
       billing(); saveBillingDraft();
+      document.querySelectorAll("details.billing-collapsible").forEach((d, k) => { d.open = k === i || wasOpen[k]; });
       document.querySelectorAll(".billing-group")[i]?.scrollIntoView({block: "start"});
     }, "text-button copy-agreement"));
     const rates = el("div", {class: "rate-row"}, field("Hourly rate", `rate-${i}`, a.rate ?? "", "number", {min: "0", step: "any"}),
@@ -730,7 +751,7 @@ function billing() {
     roundingQuestion.append(roundUp);
     group.append(roundingQuestion,
       el("details", {}, el("summary", {}, "More options"), field("Monthly limit in hours", `monthly_cap_hours-${i}`, a.monthly_cap_hours ?? "", "number", {min: "0", step: "any"})));
-    page.append(group);
+    page.append(outer);
   });
   function collect() {
     return projects.map((p, i) => ({billing: radio(`billing-${i}`), rate: value(`rate-${i}`), currency: value(`currency-${i}`),
@@ -742,6 +763,9 @@ function billing() {
     const drafts = projects.map(p => [p.name, p.agreement]);
     return () => { for (const p of projects) p.agreement = drafts.find(([name]) => name === p.name)?.[1] || p.agreement; };
   };
+  refreshBillingSummaries = () => collect().forEach((agreement, k) => {
+    const line = document.getElementById(`billing-summary-${k}`); if (line) line.textContent = agreementSummary(agreement);
+  });
   const draftKey = "autohours-billing";
   saveBillingDraft = () => { try { sessionStorage.setItem(draftKey, JSON.stringify({names: projects.map(p => p.name), agreements: collect()})); } catch {} };
   foot("Save and continue", async () => {

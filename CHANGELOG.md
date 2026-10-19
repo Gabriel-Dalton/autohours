@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- With several clients, the billing screen folds each client into a line that summarises its answers, such as "By the hour, 120 CAD, breaks up to 10 min". The first client still to answer opens; a client with a missing answer opens to show it.
 - Add time away from the computer on Home: calls, meetings or visits you confirm for a client count as work, with a private note that never reaches the timesheet.
 
 ## 1.0.3
