@@ -719,12 +719,25 @@ class Handler(BaseHTTPRequestHandler):
 
     def respond(self, status, value, content_type="application/json; charset=utf-8"):
         try:
+            self.discard_body()
             self.write_response(status, value, content_type)
         except ConnectionError:
             self.close_connection = True
         except OSError as exc:
             if getattr(exc, "winerror", None) not in (10053, 10054):
                 raise
+            self.close_connection = True
+
+    def discard_body(self):
+        # Answering without reading what was sent makes Windows reset the connection,
+        # and the window would see a network failure instead of this response.
+        if getattr(self, "body_read", True):
+            return
+        self.body_read = True
+        lengths = self.headers.get_all("Content-Length", [])
+        if len(lengths) == 1 and lengths[0].isdigit() and int(lengths[0]) <= 1024 * 1024:
+            self.rfile.read(int(lengths[0]))
+        else:
             self.close_connection = True
 
     def write_response(self, status, value, content_type):
@@ -741,6 +754,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def handle_request(self):
         self.response_started = False
+        self.body_read = False
         server = self.server
         if self.headers.get_all("Host") != [server.host] or (self.headers.get_all("Origin") is not None and self.headers.get_all("Origin") != [server.origin]):
             self.respond(403, {"error": "Open this app using its local window address."})
@@ -819,6 +833,7 @@ class Handler(BaseHTTPRequestHandler):
             raise InputError("This request is too large or incomplete.")
         if self.headers.get_content_type() != "application/json":
             raise InputError("Send this action from the autohours window.")
+        self.body_read = True
         try:
             data = json.loads(self.rfile.read(int(lengths[0])))
         except (ValueError, UnicodeError):

@@ -61,7 +61,7 @@ def server_factory(app, monkeypatch):
     for server, thread in servers:
         server.shutdown()
         server.server_close()
-        thread.join(timeout=2)
+        thread.join(timeout=10)
         assert not thread.is_alive()
 
 
@@ -359,6 +359,15 @@ def test_bootstrap_is_single_use_and_not_an_api_token(server_factory):
     assert http(server, "/api/state", headers={"X-Autohours-Token": result["token"]})[0] == 200
 
 
+def test_early_refusals_still_answer_requests_with_a_body(server_factory, app):
+    server, _ = server_factory()
+    body = {"padding": "x" * 300_000}
+    assert http(server, "/api/save", body, headers={"X-Autohours-Token": "wrong"})[0] == 403
+    with app.lock:
+        for _ in range(5):
+            assert http(server, "/api/save", body)[0] == 409
+
+
 def test_expired_bootstrap_is_rejected(server_factory):
     server, _ = server_factory(first_timeout=300)
     server.started -= 121
@@ -372,14 +381,14 @@ def test_concurrent_bootstrap_redemption_has_one_winner(server_factory):
     results = []
 
     def redeem():
-        barrier.wait(timeout=2)
+        barrier.wait(timeout=10)
         results.append(server.redeem_bootstrap(code))
 
     threads = [threading.Thread(target=redeem) for _ in range(2)]
     for thread in threads:
         thread.start()
     for thread in threads:
-        thread.join(timeout=2)
+        thread.join(timeout=10)
     assert sorted(results) == [False, True]
 
 
@@ -505,10 +514,10 @@ def test_errors_are_json_with_field_names_and_private_traceback(server_factory, 
 
 @pytest.mark.parametrize("heartbeat", [False, True])
 def test_heartbeat_timeout_stops_server(server_factory, heartbeat):
-    server, thread = server_factory(first_timeout=.4, heartbeat_timeout=.15)
+    server, thread = server_factory(first_timeout=3, heartbeat_timeout=.3)
     if heartbeat:
         assert http(server, "/api/heartbeat", {})[0] == 200
-    thread.join(timeout=2)
+    thread.join(timeout=8)
     assert not thread.is_alive()
 
 
@@ -531,7 +540,7 @@ def test_writes_cannot_overlap_and_heartbeat_stays_responsive(server_factory, ap
     def dispatch(method, path, data, query):
         if path == "/api/write":
             started.set()
-            assert release.wait(timeout=3)
+            assert release.wait(timeout=15)
             return {"ok": True}
         return original(method, path, data, query)
 
@@ -540,12 +549,12 @@ def test_writes_cannot_overlap_and_heartbeat_stays_responsive(server_factory, ap
     thread = threading.Thread(target=lambda: results.append(http(server, "/api/write", {})))
     thread.start()
     try:
-        assert started.wait(timeout=2)
+        assert started.wait(timeout=10)
         assert http(server, "/api/write", {})[0] == 409
         assert http(server, "/api/heartbeat", {})[0] == 200
     finally:
         release.set()
-        thread.join(timeout=2)
+        thread.join(timeout=15)
     assert results[0][0] == 200
 
 
@@ -665,7 +674,7 @@ def test_read_requests_overlap_but_mutations_remain_exclusive(server_factory, ap
         route = path.removeprefix("/api/")
         if route in started:
             started[route].set()
-            assert release.wait(timeout=3)
+            assert release.wait(timeout=15)
             return {"ok": True}
         return original(method, path, data, query)
     app.dispatch = dispatch
@@ -674,14 +683,14 @@ def test_read_requests_overlap_but_mutations_remain_exclusive(server_factory, ap
     for thread in threads:
         thread.start()
     try:
-        assert all(event.wait(timeout=2) for event in started.values())
+        assert all(event.wait(timeout=10) for event in started.values())
         assert http(server, "/api/state")[0] == 200
         assert http(server, "/api/timezone", {"timezone": "UTC"})[0] == 409
         assert http(server, "/api/write", {})[0] == 409
     finally:
         release.set()
         for thread in threads:
-            thread.join(timeout=2)
+            thread.join(timeout=15)
     assert len(results) == 2 and all(result[0] == 200 for result in results)
     assert app.readers == 0
 

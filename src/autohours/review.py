@@ -158,7 +158,7 @@ h2{font-weight:400;font-size:1.5rem;margin:2.5rem 0 1rem}h3{font-size:1rem;margi
 .segment{position:absolute;top:0;height:100%;min-width:2px}.hours{display:flex;justify-content:space-between;font-size:.75rem;color:var(--muted)}
 .worked{background:#24a148}.counted-break{background:#b28600}.call{background:#4589ff}.accepted{background:#a56eff}
 .excluded-away{background:#da1e28}.unmatched,.interruption{background:#8d8d8d}
-.scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:36rem}caption{text-align:left;color:var(--muted);padding-bottom:.5rem}
+.scroll{overflow-x:auto}.scroll:focus-visible{outline:2px solid currentColor;outline-offset:2px}table{border-collapse:collapse;width:100%;min-width:36rem}.note{color:var(--muted);margin:0 0 .5rem}
 th,td{border-bottom:1px solid var(--line);padding:.75rem 1rem;text-align:left;vertical-align:top}thead th{background:var(--layer)}
 tbody th h3{margin:0}details{margin-top:2rem}summary{cursor:pointer}pre{white-space:pre-wrap;font:inherit;background:var(--layer);padding:1rem}
 """
@@ -241,7 +241,7 @@ def html_review(result, projects, zone, titles=False, verbose=False):
                 out.append(f'<li>{escape(label)}</li>')
             out.append('</ul>')
         out.append('</section>')
-    out.append('<h2>Entries</h2><div class="scroll"><table><caption>What would be written to your timesheet. Gaps you were away are left out, so an entry can be shorter than the activity around it.</caption><thead><tr><th scope="col">Client</th><th scope="col">Activity</th><th scope="col">Entry</th><th scope="col">Billed</th><th scope="col">Details</th></tr></thead><tbody>')
+    out.append('<h2 id="entries-title">Entries</h2><p class="note" id="entries-note">What would be written to your timesheet. Gaps you were away are left out, so an entry can be shorter than the activity around it.</p><div class="scroll" role="region" aria-labelledby="entries-title" tabindex="0"><table aria-labelledby="entries-title" aria-describedby="entries-note"><thead><tr><th scope="col">Client</th><th scope="col">Activity</th><th scope="col">Entry</th><th scope="col">Billed</th><th scope="col">Details</th></tr></thead><tbody>')
     day = None
     for row in result.reviews:
         if not verbose and row.billed <= 0:
@@ -259,7 +259,7 @@ def html_review(result, projects, zone, titles=False, verbose=False):
             detail += " | " + " | ".join(sorted({s.title for s in row.segments if s.title}))
         out.append(f'<tr><th scope="row">{escape(projects[row.project].name)}</th><td>{escape(activity_span)}</td><td>{escape(entry)}</td><td>{minutes_text(row.billed)}</td><td>{escape(detail)}</td></tr>')
     out.append('</tbody></table></div>')
-    out.append('<h2>Totals</h2><div class="scroll"><table><caption>Billed time and the agreement for each client</caption><thead><tr><th scope="col">Client</th><th scope="col">Billed</th><th scope="col">Agreement</th></tr></thead><tbody>')
+    out.append('<h2 id="totals-title">Totals</h2><p class="note" id="totals-note">Billed time and the agreement for each client.</p><div class="scroll" role="region" aria-labelledby="totals-title" tabindex="0"><table aria-labelledby="totals-title" aria-describedby="totals-note"><thead><tr><th scope="col">Client</th><th scope="col">Billed</th><th scope="col">Agreement</th></tr></thead><tbody>')
     for name, minutes, detail in totals(result, projects):
         out.append(f'<tr><th scope="row">{escape(name)}</th><td>{minutes_text(minutes)}</td><td>{escape(detail)}</td></tr>')
     out.append('</tbody></table></div><details><summary>Calculation details</summary><pre>')

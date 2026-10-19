@@ -82,7 +82,7 @@ def test_review_text_and_html_privacy(event, projects, settings, origin):
     assert "away gaps excluded: 3.0" in text
     assert "120 CAD x 0.45 hours = 54.00 CAD" in text
     html = html_review(result, projects, timezone.utc)
-    assert "private" not in html and "<table>" in html and 'scope="col"' in html
+    assert "private" not in html and "<table " in html and 'scope="col"' in html
     assert "http:" not in html and "https:" not in html and "<script" not in html
     assert "color-scheme:light dark" in html
     assert "private &lt;title&gt;" in html_review(result, projects, timezone.utc, True)
