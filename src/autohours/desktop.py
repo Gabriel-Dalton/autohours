@@ -123,7 +123,8 @@ class Session:
     def read_activity(self, settings):
         source = self.activity_source()
         activity = setup.recent_activity(source, self.now)
-        items = setup.activity_items(activity, self.now - timedelta(days=7), self.now)
+        # The app lists, searches and pages these, so offer far more than the text wizard prints.
+        items = setup.activity_items(activity, self.now - timedelta(days=7), self.now, limit=500)
         if not items:
             raise UserError("No active time recorded in the last seven days. Let ActivityWatch record some work and check again.")
         return activity, items
@@ -132,7 +133,7 @@ class Session:
         source = setup.ActivityWatch(self.raw["activitywatch"])
         message = source.check()
         self.activity = setup.recent_activity(source, self.now)
-        self.items = setup.activity_items(self.activity, self.now - timedelta(days=7), self.now)
+        self.items = setup.activity_items(self.activity, self.now - timedelta(days=7), self.now, limit=500)
         if not self.items:
             raise UserError("No active time recorded in the last seven days. Let ActivityWatch record some work and check again.")
         return message

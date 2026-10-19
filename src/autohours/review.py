@@ -146,23 +146,44 @@ def timeline_segments(result):
     return sorted(segments, key=lambda s: s.start)
 
 
+REPORT_STYLE = """
+:root{color-scheme:light dark;--bg:#fff;--layer:#f4f4f4;--text:#161616;--muted:#525252;--line:#c6c6c6;--track:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#161616;--layer:#262626;--text:#f4f4f4;--muted:#c6c6c6;--line:#525252;--track:#161616}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 "IBM Plex Sans",system-ui,sans-serif}
+main{max-width:64rem;margin:auto;padding:2rem 1rem 4rem}h1{font-weight:400;font-size:2rem;margin:0 0 .25rem}
+h2{font-weight:400;font-size:1.5rem;margin:2.5rem 0 1rem}h3{font-size:1rem;margin:1.25rem 0 .25rem}p{color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:.5rem 1.25rem;padding:0;list-style:none}.legend li{display:flex;align-items:center;gap:.5rem}
+.swatch{width:.875rem;height:.875rem;display:inline-block}
+.track{position:relative;height:1.75rem;background:var(--track) repeating-linear-gradient(90deg,transparent 0 calc(25% - 1px),var(--line) calc(25% - 1px) 25%);border:1px solid var(--line)}
+.segment{position:absolute;top:0;height:100%;min-width:2px}.hours{display:flex;justify-content:space-between;font-size:.75rem;color:var(--muted)}
+.worked{background:#24a148}.counted-break{background:#b28600}.call{background:#4589ff}.accepted{background:#a56eff}
+.excluded-away{background:#da1e28}.unmatched,.interruption{background:#8d8d8d}
+.scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:36rem}caption{text-align:left;color:var(--muted);padding-bottom:.5rem}
+th,td{border-bottom:1px solid var(--line);padding:.75rem 1rem;text-align:left;vertical-align:top}thead th{background:var(--layer)}
+tbody th h3{margin:0}details{margin-top:2rem}summary{cursor:pointer}pre{white-space:pre-wrap;font:inherit;background:var(--layer);padding:1rem}
+"""
+
+
+def minutes_text(minutes):
+    whole = round(minutes)
+    return f"{whole // 60} h {whole % 60} min" if whole >= 60 else f"{whole} min"
+
+
 def html_review(result, projects, zone, titles=False, verbose=False):
+    segments_all = timeline_segments(result)
+    present = [kind for kind in LABELS if any(s.kind == kind for s in segments_all)]
     out = ['<!doctype html><html lang="en"><meta charset="utf-8">',
            '<meta name="viewport" content="width=device-width, initial-scale=1">',
-           '<title>autohours review</title><style>',
-           ':root{color-scheme:light dark}body{font:16px system-ui,sans-serif;max-width:75rem;margin:auto;padding:2rem;line-height:1.5}',
-           'table{border-collapse:collapse;width:100%}th,td{border:1px solid #888;padding:.6rem;text-align:left}',
-           '.track{position:relative;height:2rem;border:1px solid #888;margin:1rem 0}.segment{position:absolute;height:100%;min-width:2px}',
-           '.worked{background:#217a46}.counted-break{background:#a66b00}.call{background:#246bc4}.accepted{background:#964cc2}',
-           '.excluded-away{background:#ae4646}.unmatched,.interruption{background:#666}.key{display:inline-block;padding:.1rem .5rem;color:white;margin:.25rem}',
-           'pre{white-space:pre-wrap;font:inherit}li{margin:.3rem 0}</style><body><main><h1>autohours review</h1>',
-           '<p>Real activity spans are shown below. Destination entries compress excluded gaps. Rounding and caps change billed totals.</p>',
-           '<p>Caps in this local review use ActivityWatch and accepted time. Dry sync also checks logged destination time.</p>',
-           '<h2>Legend</h2><ul>']
-    out.extend(f'<li><span class="key {kind}">{escape(label)}</span></li>' for kind, label in LABELS.items())
+           '<title>autohours review</title><style>', REPORT_STYLE, '</style><body><main><h1>autohours review</h1>',
+           f'<p>Times are in {escape(str(zone))}. Each bar runs from midnight to midnight; the lines mark 6 AM, noon and 6 PM.</p>',
+           '<p>Coloured blocks show the time counted for each client. Grey is activity that matched no client.'
+           + ('' if titles else ' Window titles are left out of this report.') + '</p>',
+           '<p>Monthly limits here count only activity on this computer. Writing also counts time already in your timesheet, so the written total can be lower.</p>',
+           '<ul class="legend">']
+    out.extend(f'<li><span class="swatch {kind}" aria-hidden="true"></span>{escape(LABELS[kind].capitalize())}</li>' for kind in present)
     out.append('</ul>')
     groups = defaultdict(list)
-    for s in timeline_segments(result):
+    for s in segments_all:
         a = s.start
         while a < s.end:
             day = a.astimezone(zone).date()
@@ -170,9 +191,13 @@ def html_review(result, projects, zone, titles=False, verbose=False):
             b = min(s.end, midnight)
             groups[(day, s.project)].append(replace(s, start=a, end=b))
             a = b
+    shown_day = None
     for (day, project), segments in sorted(groups.items(), key=lambda item: (item[0][0], -1 if item[0][1] is None else item[0][1])):
-        name = projects[project].name if project is not None else "Unmatched"
-        out.append(f'<section><h2>{day} {escape(name)}</h2><p>Local midnight to midnight ({escape(str(zone))})</p><div class="track" aria-hidden="true">')
+        name = projects[project].name if project is not None else "No client"
+        if day != shown_day:
+            out.append(f'<h2>{day.strftime("%A")}, {day.day} {day.strftime("%B %Y")}</h2>')
+            shown_day = day
+        out.append(f'<section><h3>{escape(name)}</h3><div class="track" aria-hidden="true">')
         a = datetime.combine(day, time(), zone).astimezone(timezone.utc)
         b = datetime.combine(day + timedelta(days=1), time(), zone).astimezone(timezone.utc)
         seconds = (b - a).total_seconds()
@@ -187,7 +212,7 @@ def html_review(result, projects, zone, titles=False, verbose=False):
             left = 100 * (s.start - a).total_seconds() / seconds
             width = 100 * (s.end - s.start).total_seconds() / seconds
             out.append(f'<span class="segment {s.kind}" style="left:{left:.5f}%;width:{width:.5f}%"></span>')
-        out.append('</div>')
+        out.append('</div><div class="hours" aria-hidden="true"><span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>12 AM</span></div>')
         if verbose:
             out.append('<ul>')
             for s in compact:
@@ -196,7 +221,7 @@ def html_review(result, projects, zone, titles=False, verbose=False):
                 out.append(f'<li>{escape(label)}</li>')
             out.append('</ul>')
         out.append('</section>')
-    out.append('<h2>Blocks</h2><table><caption>Real spans and compressed destination entries</caption><thead><tr><th scope="col">Project</th><th scope="col">Activity span</th><th scope="col">Entry</th><th scope="col">Billed minutes</th><th scope="col">Explanation</th></tr></thead><tbody>')
+    out.append('<h2>Entries</h2><div class="scroll"><table><caption>What would be written to your timesheet. Gaps you were away are left out, so an entry can be shorter than the activity around it.</caption><thead><tr><th scope="col">Client</th><th scope="col">Activity</th><th scope="col">Entry</th><th scope="col">Billed</th><th scope="col">Details</th></tr></thead><tbody>')
     day = None
     for row in result.reviews:
         if not verbose and row.billed <= 0:
@@ -212,12 +237,12 @@ def html_review(result, projects, zone, titles=False, verbose=False):
         detail = reasons(row)
         if titles:
             detail += " | " + " | ".join(sorted({s.title for s in row.segments if s.title}))
-        out.append(f'<tr><th scope="row">{escape(projects[row.project].name)}</th><td>{escape(activity_span)}</td><td>{escape(entry)}</td><td>{row.billed:.1f}</td><td>{escape(detail)}</td></tr>')
-    out.append('</tbody></table><h2>Summary</h2><pre>')
-    out.append(escape("\n".join(summary_lines(result, projects, titles))))
-    out.append('</pre>')
-    out.append('<h2>Totals</h2><table><caption>Billed time and agreed rates</caption><thead><tr><th scope="col">Project</th><th scope="col">Minutes</th><th scope="col">Agreement</th></tr></thead><tbody>')
+        out.append(f'<tr><th scope="row">{escape(projects[row.project].name)}</th><td>{escape(activity_span)}</td><td>{escape(entry)}</td><td>{minutes_text(row.billed)}</td><td>{escape(detail)}</td></tr>')
+    out.append('</tbody></table></div>')
+    out.append('<h2>Totals</h2><div class="scroll"><table><caption>Billed time and the agreement for each client</caption><thead><tr><th scope="col">Client</th><th scope="col">Billed</th><th scope="col">Agreement</th></tr></thead><tbody>')
     for name, minutes, detail in totals(result, projects):
-        out.append(f'<tr><th scope="row">{escape(name)}</th><td>{minutes:.1f}</td><td>{escape(detail)}</td></tr>')
-    out.append('</tbody></table></main></body></html>')
+        out.append(f'<tr><th scope="row">{escape(name)}</th><td>{minutes_text(minutes)}</td><td>{escape(detail)}</td></tr>')
+    out.append('</tbody></table></div><details><summary>Calculation details</summary><pre>')
+    out.append(escape("\n".join(summary_lines(result, projects, titles))))
+    out.append('</pre></details></main></body></html>')
     return "\n".join(out)

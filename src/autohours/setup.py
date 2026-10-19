@@ -252,7 +252,7 @@ def save_settings(collected, output=print):
     return load_config(path)
 
 
-def activity_items(activity, start, end):
+def activity_items(activity, start, end, limit=20):
     domains = sorted({urlsplit(str(e.data.get("url", ""))).hostname for e in activity.web
                       if urlsplit(str(e.data.get("url", ""))).scheme in ("http", "https")
                       and urlsplit(str(e.data.get("url", ""))).hostname})
@@ -265,7 +265,7 @@ def activity_items(activity, start, end):
             counts[("title", row.title)] += row.minutes
         if row.project is not None:
             counts[("url", domains[row.project])] += row.minutes
-    return counts.most_common(20)
+    return counts.most_common(limit)
 
 
 def title_keyword(title, project):

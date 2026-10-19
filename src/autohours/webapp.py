@@ -233,14 +233,29 @@ class Application:
             except UserError:
                 raise InputError("No recent activity is available yet. Open ActivityWatch, let it record some work, then try again.") from None
         items = []
+        covered = self.covered()
         for i, ((kind, raw), minutes) in enumerate(s.items):
             label = desktop.activity_label(kind, raw).rsplit("  ", 2)[0]
             matches = [p["name"] for p in s.raw["projects"] if any(re.search(rule, raw, re.I) for rule in p.get(kind, []))]
             items.append({"id": i, "name": label, "kind": {"app": "App", "title": "Window title", "url": "Website"}[kind],
-                          "hours": minutes / 60, "matches": matches})
+                          "hours": minutes / 60, "matches": matches, "covered": i in covered})
         return {"items": items, "projects": self.projects(), "coverage": s.coverage(),
                 "remote": [{"id": p["id"], "name": p["name"]} for p in s.remote],
                 "currency": self.currency, "workspace_name": self.workspace_name}
+
+    def covered(self):
+        """Items any project already counts, including window titles inside an app a project has picked."""
+        s = self.session
+        title_apps = defaultdict(set)
+        for event in (s.activity.windows if s.activity else []):
+            title_apps[str(event.data.get("title", ""))].add(str(event.data.get("app", "")))
+        def hit(kind, value):
+            return any(re.search(rule, value, re.I) for p in s.raw["projects"] for rule in p.get(kind, []))
+        found = set()
+        for i, ((kind, raw), _) in enumerate(s.items):
+            if hit(kind, raw) or (kind == "title" and any(hit("app", app) for app in title_apps.get(raw, ()))):
+                found.add(i)
+        return found
 
     def set_projects(self, data):
         s = self.session
@@ -291,7 +306,7 @@ class Application:
             self.project_ids = previous_ids
             raise
         self.invalidate()
-        return {"projects": self.projects(), "coverage": s.coverage()}
+        return {"projects": self.projects(), "coverage": s.coverage(), "covered": sorted(self.covered())}
 
     def agreements(self, data):
         s = self.session
@@ -376,9 +391,12 @@ class Application:
             s.activity, s.items = None, []
             try:
                 s.check_buckets()
-            except UserError:
-                return {"running": False, "hosts": hosts, "hostname": host,
-                        "message": "ActivityWatch is open. Enable app and away-time recording in its settings."}
+            except UserError as exc:
+                message = ("ActivityWatch is open, but no websites have arrived from its browser extension. "
+                           "Install the ActivityWatch extension in your browser, or turn off website matching."
+                           if str(exc).startswith("No web watcher") else
+                           "ActivityWatch is open. Enable app and away-time recording in its settings.")
+                return {"running": False, "hosts": hosts, "hostname": host, "message": message}
             self.invalidate()
             return {"running": True, "hosts": hosts, "hostname": host, "message": "ActivityWatch is running on this computer."}
         if route == ("POST", "/api/destination"):

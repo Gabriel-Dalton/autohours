@@ -19,6 +19,12 @@
 - Refuse an existing file with other columns as the spreadsheet at setup, instead of failing at the first write.
 - Add `autohours --version`.
 - Refreshing the window returns to the same screen, keeping unsaved billing answers, instead of starting setup again.
+- Offer up to 500 apps, windows and websites from the last week on the projects screen, instead of only the 20 biggest, so smaller clients can be found and searched.
+- "Assign it" opens the projects screen showing only activity no client covers yet, with a switch to show everything.
+- Restyle the full report to match the app, in plain language, with a legend of only the colours used and tables that fit a phone.
+- Say when website matching is on but the ActivityWatch browser extension has sent nothing, instead of pointing at app recording.
+- Rewrite "How is this worked out?" in plain language.
+- Show the morning schedule as a plain sentence with the time in your clock format, with the exact command behind "Show the full preview".
 
 ## 1.0.2
 

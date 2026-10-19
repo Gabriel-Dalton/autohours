@@ -9,7 +9,7 @@ const toast = document.querySelector("#toast");
 let state, step = "welcome", editing = false, generation = 0, awTimer;
 let projects = [], items = [], remote = [], selected = 0, activitySearch = "", activityExpanded = false;
 let projectQueue = Promise.resolve(), projectFailure = null, projectRevision = 0;
-let primary, keyConnected = false, singleWorkspace = false, editChanged = false;
+let primary, keyConnected = false, singleWorkspace = false, editChanged = false, unassignedOnly = false;
 let beforeStepBack = () => {};
 // Explicit local references keep the sprite contract auditable without a build step.
 const iconPaths = {
@@ -499,13 +499,14 @@ function saveProjects(validate = false) {
     const result = await api("projects", {projects: submitted, validate});
     if (editing) editChanged = true;
     submitted.forEach((p, i) => { p.id = result.projects[i].id; });
+    if (result.covered) { const covered = new Set(result.covered); items.forEach(item => { item.covered = covered.has(item.id); }); }
     projectFailure = null;
     if (revision === projectRevision) updateCoverage(result.coverage);
   }).catch(error => { projectFailure = error; showError(error); if (validate) throw error; });
   return projectQueue;
 }
-function activityPage(allItems, search, expanded) {
-  const matches = allItems.filter(item => item.name.toLowerCase().includes(search.toLowerCase()));
+function activityPage(allItems, search, expanded, keep = () => true) {
+  const matches = allItems.filter(item => item.name.toLowerCase().includes(search.toLowerCase()) && keep(item));
   return {visible: expanded ? matches : matches.slice(0, 12), total: matches.length};
 }
 function nightlyKind(summary) {
@@ -518,7 +519,8 @@ function activityRows() {
   const focused = list.contains(document.activeElement) ? document.activeElement.id : null;
   list.replaceChildren();
   const project = projects[selected];
-  const {visible, total} = activityPage(items, activitySearch, activityExpanded);
+  const unassigned = item => !unassignedOnly || !(item.covered || projects.some(p => p.items.includes(item.id)));
+  const {visible, total} = activityPage(items, activitySearch, activityExpanded, unassigned);
   for (const item of visible) {
     const input = el("input", {id: `activity-${item.id}`, type: "checkbox", "aria-label": `Assign ${item.name} to ${project?.name || "a project"}`});
     input.checked = !!project?.items.includes(item.id); input.disabled = !project;
@@ -543,7 +545,7 @@ function activityRows() {
   if (!list.children.length) list.append(el("p", {class: "muted"}, "No activity matches your search."));
   if (total > visible.length) list.append(button(`Show all ${total} items`, () => {
     activityExpanded = true; activityRows();
-    document.getElementById(`activity-${activityPage(items, activitySearch, true).visible[12].id}`)?.focus({preventScroll: true});
+    document.getElementById(`activity-${activityPage(items, activitySearch, true, unassigned).visible[12].id}`)?.focus({preventScroll: true});
   }, "text-button"));
   if (focused) document.getElementById(focused)?.focus({preventScroll: true});
 }
@@ -659,7 +661,8 @@ async function projectsScreen() {
     selected = Math.min(selected, Math.max(0, projects.length - 1));
     const search = field("Search your activity", "activity-search", activitySearch, "search");
     search.querySelector("input").addEventListener("input", e => { activitySearch = e.target.value; activityExpanded = false; activityRows(); });
-    panel.append(el("h2", {}, "Your activity from the last 7 days"), search,
+    const onlyUnassigned = toggle("Only show activity with no client", "unassigned-only", unassignedOnly, checked => { unassignedOnly = checked; activityExpanded = false; activityRows(); });
+    panel.append(el("h2", {}, "Your activity from the last 7 days"), search, onlyUnassigned,
       el("small", {}, "Picking an app includes all time in that app. Pick a window title for work in a shared app."),
       el("div", {id: "activity-list", class: "activity-list"}),
       el("div", {class: "coverage"}, el("div", {class: "coverage-heading"}, el("span", {}, "Assigned"), el("span", {id: "coverage-percent"})),
@@ -833,12 +836,12 @@ function reviewCard(initialDay, fallback = false) {
         results.append(el("div", {class: "table-scroll", tabindex: "0", role: "region", "aria-label": "Timesheet entries, scroll to see all columns"}, table));
       }
       if (result.unmatched_minutes > 0) results.append(el("p", {class: "review-note"}, `${duration(result.unmatched_minutes)} of activity did not match a project. `,
-        button("Assign it", async () => { editing = true; editChanged = false; await projectsScreen(); }, "text-button")));
+        button("Assign it", async () => { editing = true; editChanged = false; unassignedOnly = true; await projectsScreen(); }, "text-button")));
       if (result.short_piece_minutes > 0) results.append(el("p", {class: "review-note"}, `${duration(result.short_piece_minutes)} was in pieces too short to bill (under ${result.minimum_minutes} min).`));
       results.append(el("details", {}, el("summary", {}, "How is this worked out?"),
-        el("p", {}, "Rounding and monthly limits can change totals. Confirmed offline work is included."),
-        el("p", {}, "Nearby work can share an entry. Excluded gaps are not billed. Time away stays out unless your agreement counts it."),
-        el("p", {}, "The write preview checks time already logged and monthly limits. Monthly local review can differ because writing reserves logged destination time.")));
+        el("p", {}, "Work on the same client close together becomes one entry. Time you were away from the computer is left out, unless your agreement counts short breaks or calls."),
+        el("p", {}, "Rounding and monthly limits are applied to each entry. Work you added by hand for a call or meeting is included."),
+        el("p", {}, "Before writing, autohours checks your timesheet and skips anything already there. For clients with a monthly limit, the written total can be lower than shown here, because time already in your timesheet counts towards the limit.")));
       writeButton.disabled = !result.entries.length; reportButton.disabled = false;
       buttonLabel(writeButton, `Write ${day === state.yesterday ? "yesterday" : day === state.today ? "today" : "this day"} to ${state.destination.type === "clockify" ? "Clockify" : "your spreadsheet"}`, "arrow--right");
     } catch (error) {
@@ -877,10 +880,14 @@ function scheduleCard() {
       }
       const plan = await api("schedule/plan?at=" + encodeURIComponent(timeInput.value));
       if (request !== revision || !section.isConnected) return;
-      confirmation(section, `Write yesterday every morning at ${plan.at}?`, plan.text, enabled ? "Use this time" : "Turn on", async () => {
-        await api("schedule", {confirm: true, preview: plan.preview});
-        enabled = true; savedTime = plan.at; updateState();
-      }, restore);
+      const [hour, minute] = plan.at.split(":").map(Number);
+      const clock = new Date(2000, 0, 1, hour, minute).toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
+      confirmation(section, `Write yesterday every morning at ${clock}?`,
+        `Each morning at ${clock}, autohours writes yesterday's timesheet, as long as this computer is on and you are signed in. Days it misses are not filled in later.`,
+        enabled ? "Use this time" : "Turn on", async () => {
+          await api("schedule", {confirm: true, preview: plan.preview});
+          enabled = true; savedTime = plan.at; updateState();
+        }, restore, plan.text);
     } catch (error) { restore(); showError(error); }
     finally { input.disabled = timeInput.disabled = false; }
   }
@@ -964,7 +971,7 @@ async function home() {
     return node;
   }
   page.append(el("div", {class: "tiles"},
-    tile("Projects and billing", "Match activity and manage agreements", el("small", {class: "tile-state"}, `${state.projects.length} ${state.projects.length === 1 ? "project" : "projects"}, ${kinds}`), "folder", async () => { editing = true; editChanged = false; await projectsScreen(); }),
+    tile("Projects and billing", "Match activity and manage agreements", el("small", {class: "tile-state"}, `${state.projects.length} ${state.projects.length === 1 ? "project" : "projects"}, ${kinds}`), "folder", async () => { editing = true; editChanged = false; unassignedOnly = false; await projectsScreen(); }),
     tile("Every morning", "Set up automatic daily writes", el("small", {id: "morning-state", class: "tile-state"}, state.schedule), "time", () => { morning.hidden = !morning.hidden; if (!morning.hidden) { morning.scrollIntoView({block: "start"}); morning.querySelector("input").focus({preventScroll: true}); } }),
     tile("Settings file", "Open in your text editor", el("small", {class: "tile-state"}, "Saved on this computer"), "document", async () => { await api("settings/open", {}); notice("Your settings file opened in your default editor."); }),
     tile("Run setup again", "Start over with new answers", el("small", {class: "tile-state"}, "Review before saving"), "renew", () => { editing = false; welcome(); })), morning);
