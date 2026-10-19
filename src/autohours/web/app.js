@@ -2,7 +2,7 @@
 
 // The view sends answers to Python. It never calculates billing or builds rules.
 let token = "", heartbeat, disconnected = false, spriteReady = false;
-const sessionKey = "autohours-token";
+const sessionKey = "autohours-token", stepKey = "autohours-step";
 const page = document.querySelector("#page");
 const footer = document.querySelector("#footer");
 const toast = document.querySelector("#toast");
@@ -276,6 +276,10 @@ function foot(label, action, back) {
 }
 function screen(name, title, subtitle) {
   step = name; generation++; clearTimeout(awTimer); clearErrors();
+  try {
+    if (name === "home" || name === "welcome") sessionStorage.removeItem(stepKey);
+    else sessionStorage.setItem(stepKey, JSON.stringify({step: name, editing}));
+  } catch {}
   beforeStepBack = () => {};
   const shell = document.querySelector("#app-shell");
   shell.dataset.screen = name;
@@ -725,10 +729,15 @@ function billing() {
     const drafts = projects.map(p => [p.name, p.agreement]);
     return () => { for (const p of projects) p.agreement = drafts.find(([name]) => name === p.name)?.[1] || p.agreement; };
   };
+  // Unsaved billing answers survive a refresh of this window.
+  const draftKey = "autohours-billing";
+  page.addEventListener("input", () => { try { sessionStorage.setItem(draftKey, JSON.stringify({names: projects.map(p => p.name), agreements: collect()})); } catch {} });
+  page.addEventListener("change", () => page.dispatchEvent(new Event("input")));
   foot("Save and continue", async () => {
     const agreements = collect();
     await api("agreements", {agreements});
     await api("save", {});
+    try { sessionStorage.removeItem(draftKey); } catch {}
     projects.forEach((p, i) => { p.agreement = agreements[i]; });
     await refresh();
     if (editing) { editing = false; await home(); } else await finish();
@@ -914,6 +923,32 @@ async function finish() {
   if (generation !== current) return;
 }
 
+// After a refresh, return to the screen the person was on. The server still holds their unsaved answers.
+async function resumeAt(saved) {
+  keyConnected = Boolean(state.clockify_connected); singleWorkspace = Boolean(state.single_workspace);
+  editing = Boolean(saved.editing) && state.saved;
+  if (state.saved && !editing && saved.step !== "finish") return false;
+  const clockify = state.destination.type === "clockify";
+  switch (saved.step) {
+    case "activitywatch": activityWatch(); return true;
+    case "destination": destination(); return true;
+    case "connect": if (!clockify) return false; connect(); return true;
+    case "workspace": if (!clockify) return false; if (keyConnected) await workspace(); else connect(); return true;
+    case "projects": if (clockify && !keyConnected) connect(); else await projectsScreen(); return true;
+    case "billing":
+      if (!state.projects.length || (clockify && !keyConnected)) return resumeAt({...saved, step: "projects"});
+      projects = state.projects;
+      try {
+        const draft = JSON.parse(sessionStorage.getItem("autohours-billing") || "null");
+        if (draft && JSON.stringify(draft.names) === JSON.stringify(projects.map(p => p.name)))
+          projects.forEach((p, i) => { p.agreement = {...p.agreement, ...Object.fromEntries(Object.entries(draft.agreements[i]).filter(([, v]) => v !== "" && v !== null))}; });
+      } catch {}
+      billing(); return true;
+    case "finish": if (!state.saved) return false; await finish(); return true;
+  }
+  return false;
+}
+
 async function home() {
   await projectQueue.catch(() => {});
   await refresh(); editing = false;
@@ -955,7 +990,7 @@ function closedScreen(expired = false, quit = false) {
   if (disconnected) return;
   disconnected = true; token = ""; generation++;
   clearInterval(heartbeat); clearTimeout(awTimer);
-  try { sessionStorage.removeItem(sessionKey); } catch {}
+  try { sessionStorage.removeItem(sessionKey); sessionStorage.removeItem(stepKey); } catch {}
   primary = null; beforeStepBack = () => {};
   const shell = document.querySelector("#app-shell");
   shell.dataset.screen = "closed";
@@ -1012,6 +1047,11 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && to
     history.pushState({autohours: true}, "");
     footer.querySelector("button.text-button")?.click();
   });
-  try { await refresh(); if (state.saved) await home(); else welcome(); }
+  try {
+    await refresh();
+    let resume = null;
+    try { resume = JSON.parse(sessionStorage.getItem(stepKey) || "null"); } catch {}
+    if (!(resume && await resumeAt(resume))) { if (state.saved) await home(); else welcome(); }
+  }
   catch (error) { showError(error); }
 })();

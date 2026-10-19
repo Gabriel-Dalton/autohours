@@ -209,7 +209,8 @@ class Application:
                 "projects": self.projects(), "saved_key": self.saved_key,
                 "schedule": nightly, "last_run": last_run,
                 "today": str(today), "yesterday": str(today - timedelta(days=1)),
-                "currency": self.currency, "workspace_name": self.workspace_name}
+                "currency": self.currency, "workspace_name": self.workspace_name,
+                "clockify_connected": s.http is not None, "single_workspace": len(s.spaces) == 1}
 
     def choose_workspace(self, identifier):
         s = self.session

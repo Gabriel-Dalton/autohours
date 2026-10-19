@@ -18,6 +18,7 @@
 - Say when the spreadsheet is open in another program such as Excel, instead of a general error.
 - Refuse an existing file with other columns as the spreadsheet at setup, instead of failing at the first write.
 - Add `autohours --version`.
+- Refreshing the window returns to the same screen, keeping unsaved billing answers, instead of starting setup again.
 
 ## 1.0.2
 
