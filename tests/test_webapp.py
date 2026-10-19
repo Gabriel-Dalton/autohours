@@ -72,7 +72,7 @@ def http(server, path, data=None, method=None, headers=None, token=True):
                       method=method or ("GET" if data is None else "POST"), headers=headers)
     opener = build_opener(ProxyHandler({}))
     try:
-        response = opener.open(request, timeout=3)
+        response = opener.open(request, timeout=15)
     except HTTPError as exc:
         response = exc
     with response:
