@@ -12,6 +12,7 @@
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/favicon-256.png">
   <link rel="stylesheet" href="styles.css">
+  <script src="flag.js"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -36,8 +37,35 @@
         <a class="button ghost" href="#video">Watch the video (1 min 40 s)</a>
       </div>
       <p class="fine" id="download-note">Free for Windows and Mac. Works with <a href="https://activitywatch.net/">ActivityWatch</a>, also free.</p>
-      <figure class="hero-shot">
-        <img src="assets/review.png" width="1000" height="1150" alt="The autohours home screen reviewing a Friday: 6 hours 20 minutes across 11 entries for two clients, worth 672.08 CAD, with each entry listed by time and client.">
+      <figure class="demo" id="hero-demo" aria-labelledby="hero-demo-caption">
+        <div class="app-bar" aria-hidden="true"><img src="assets/favicon.svg" alt="" width="16" height="16"> autohours</div>
+        <div class="demo-body">
+          <div class="demo-col">
+            <p class="demo-label">What you did today</p>
+            <ul class="activity">
+              <li style="--i:0"><span class="item"><b>Visual Studio Code</b><small>invoice-api</small></span><span class="dur">1 h 40 min</span><span class="tag acme">Acme Corp</span></li>
+              <li style="--i:1"><span class="item"><b>Figma</b><small>Homepage redesign</small></span><span class="dur">1 h 30 min</span><span class="tag globex">Globex</span></li>
+              <li style="--i:2"><span class="item"><b>Chrome</b><small>Acme staging dashboard</small></span><span class="dur">35 min</span><span class="tag acme">Acme Corp</span></li>
+              <li style="--i:3"><span class="item"><b>Zoom</b><small>Globex weekly sync</small></span><span class="dur">30 min</span><span class="tag globex">Globex</span></li>
+              <li style="--i:4" class="skip-row"><span class="item"><b>Spotify</b><small>Playlist</small></span><span class="dur">50 min</span><span class="tag none">Not billed</span></li>
+              <li style="--i:5" class="skip-row"><span class="item"><b>Away from keyboard</b><small>Lunch</small></span><span class="dur">45 min</span><span class="tag none">Left out</span></li>
+            </ul>
+          </div>
+          <div class="demo-arrow" aria-hidden="true"></div>
+          <div class="demo-col">
+            <p class="demo-label">Your timesheet</p>
+            <ul class="entries">
+              <li style="--i:0"><span class="dot acme" aria-hidden="true"></span><span>Acme Corp</span><span class="count" data-minutes="135">2 h 15 min</span></li>
+              <li style="--i:1"><span class="dot globex" aria-hidden="true"></span><span>Globex</span><span class="count" data-minutes="120">2 h 0 min</span></li>
+            </ul>
+            <div class="totals">
+              <div><small>Time</small><strong class="count" data-minutes="255">4 h 15 min</strong></div>
+              <div><small>Amount</small><strong class="count" data-amount="460">460.00 CAD</strong></div>
+            </div>
+            <p class="demo-done">Ready to write to Clockify</p>
+          </div>
+        </div>
+        <figcaption id="hero-demo-caption">A day of activity becomes two clients' timesheet entries. Music and time away are left out. <button type="button" class="replay" hidden>Play again</button></figcaption>
       </figure>
     </section>
 
@@ -55,32 +83,60 @@
 
     <section class="wrap" id="how" aria-labelledby="how-heading">
       <h2 id="how-heading">How it works</h2>
-      <ol class="steps">
-        <li class="step">
-          <div class="step-text">
+      <div class="walk">
+        <ol class="walk-steps">
+          <li class="walk-step" data-scene="1">
             <span class="step-number">1</span>
             <h3>ActivityWatch records your day</h3>
             <p>The free, open source <a href="https://activitywatch.net/">ActivityWatch</a> notes which apps and windows you use and when you step away. Everything stays on your computer.</p>
-          </div>
-          <img src="assets/welcome.png" width="1100" height="760" loading="lazy" alt="The autohours welcome screen showing app activity such as Visual Studio Code and Figma becoming timesheet time for two clients.">
-        </li>
-        <li class="step">
-          <div class="step-text">
+            <div class="scene-slot"></div>
+          </li>
+          <li class="walk-step" data-scene="2">
             <span class="step-number">2</span>
             <h3>You say what belongs to each client</h3>
             <p>Tick the apps, windows and websites from your last week that belong to each client. There are no rules to write, and anything that matches no client is never billed.</p>
-          </div>
-          <img src="assets/projects.png" width="1000" height="720" loading="lazy" alt="The client screen: Acme Corp and Globex as tabs, with last week's apps and windows listed by time and ticked for each client.">
-        </li>
-        <li class="step">
-          <div class="step-text">
+            <div class="scene-slot"></div>
+          </li>
+          <li class="walk-step" data-scene="3">
             <span class="step-number">3</span>
             <h3>It fills in your timesheet, the way you bill</h3>
             <p>Hourly, flat fee or retainer, whether short breaks count, how to round and any monthly limit. Review a day and write it, or let it fill in yesterday every morning.</p>
+            <div class="scene-slot"></div>
+          </li>
+        </ol>
+        <div class="walk-stage" aria-hidden="true">
+          <div class="scene-frame">
+            <div class="app-bar"><img src="assets/favicon.svg" alt="" width="16" height="16"> autohours</div>
+            <div class="scene" data-scene="1">
+              <div class="mini-note"><span class="ok" aria-hidden="true"></span><span><b>ActivityWatch is running</b><small>Recording apps and time away on this computer</small></span></div>
+              <p class="demo-label">Recording now</p>
+              <ul class="mini-list">
+                <li style="--i:0"><span class="item"><b>Visual Studio Code</b><small>checkout.py</small></span><span class="tick-up" data-from="62">1 h 2 min</span></li>
+                <li style="--i:1"><span class="item"><b>Figma</b><small>Brand kit</small></span><span class="tick-up" data-from="38">38 min</span></li>
+                <li style="--i:2"><span class="item"><b>Slack</b><small>#general</small></span><span>12 min</span></li>
+                <li style="--i:3" class="away"><span class="item"><b>Away from keyboard</b><small>Coffee</small></span><span>9 min</span></li>
+              </ul>
+            </div>
+            <div class="scene" data-scene="2">
+              <div class="mini-tabs"><span class="on">Acme Corp</span><span>Globex</span></div>
+              <ul class="mini-list checks">
+                <li style="--i:0" class="pick"><span class="box" aria-hidden="true"></span><span class="item"><b>Visual Studio Code</b><small>App</small></span><span class="tag acme">Acme Corp</span><span>12 h 27 min</span></li>
+                <li style="--i:1"><span class="box" aria-hidden="true"></span><span class="item"><b>Figma</b><small>App</small></span><span></span><span>11 h 40 min</span></li>
+                <li style="--i:2" class="pick"><span class="box" aria-hidden="true"></span><span class="item"><b>Acme staging dashboard</b><small>Window title</small></span><span class="tag acme">Acme Corp</span><span>3 h 23 min</span></li>
+                <li style="--i:3"><span class="box" aria-hidden="true"></span><span class="item"><b>Spotify</b><small>App</small></span><span></span><span>1 h 58 min</span></li>
+              </ul>
+              <div class="mini-coverage"><span>Assigned</span><span class="bar"><span></span></span></div>
+            </div>
+            <div class="scene" data-scene="3">
+              <p class="mini-q">How do you bill Acme Corp?</p>
+              <div class="mini-cards"><span class="card-pick">By the hour</span><span>Flat monthly fee</span><span>Retainer</span><span>Not billed</span></div>
+              <div class="mini-rate"><span class="field">120</span><small>per hour in</small><span class="field">CAD</span></div>
+              <p class="mini-summary">By the hour, 120 CAD, breaks up to 10 min</p>
+              <div class="mini-confirm"><span class="ok" aria-hidden="true"></span><span><b>Wrote 11 entries (6 h 20 min)</b><small>to Clockify, for Friday</small></span></div>
+            </div>
           </div>
-          <img src="assets/billing.png" width="1000" height="720" loading="lazy" alt="The billing screen: Acme Corp billed by the hour at 120 CAD, with choices for flat fee, retainer or not billed.">
-        </li>
-      </ol>
+        </div>
+      </div>
     </section>
 
     <section class="band" id="video" aria-labelledby="video-heading">
@@ -170,5 +226,6 @@
     </div>
   </footer>
   <script src="script.js" defer></script>
+  <script src="demo.js" defer></script>
 </body>
 </html>
