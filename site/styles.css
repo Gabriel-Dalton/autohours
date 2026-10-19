@@ -160,7 +160,7 @@ details p { padding: 0 1rem 1rem; color: var(--text-secondary); margin: 0; }
 .anim .demo.s1 .activity li { opacity: 1; transform: none; transition-delay: calc(var(--i) * 120ms); }
 .anim .demo.s2 .tag { opacity: 1; transform: none; transition-delay: calc(var(--i) * 150ms); }
 .anim .demo.s2 .activity li { transition-delay: 0ms; }
-.anim .demo.s2 .activity li.skip-row { opacity: 0.55; }
+.anim .demo.s2 .activity li.skip-row b, .demo:not(.ready) .activity li.skip-row b { color: var(--text-secondary); }
 .anim .demo.s3 .demo-arrow { opacity: 1; transform: none; }
 .anim .demo.s3 .entries li { opacity: 1; transform: none; transition-delay: calc(200ms + var(--i) * 200ms); }
 .anim .demo.s4 .totals, .anim .demo.s5 .demo-done { opacity: 1; transform: none; }
@@ -175,8 +175,9 @@ details p { padding: 0 1rem 1rem; color: var(--text-secondary); margin: 0; }
 @media (min-width: 56rem) {
   .walk { display: grid; grid-template-columns: 1fr 1.25fr; gap: 4rem; }
   .walk-steps { gap: 0; }
-  .walk-step { min-height: 70vh; display: flex; flex-direction: column; justify-content: center; opacity: 0.45; transition: opacity 300ms; }
-  .walk-step.active { opacity: 1; }
+  .walk-step { min-height: 70vh; display: flex; flex-direction: column; justify-content: center; }
+  .walk-step .step-number { transition: background-color 300ms, color 300ms, border-color 300ms; }
+  .walk-step.active .step-number { background: var(--button); border-color: var(--button); color: var(--on-button); }
   .walk-step .scene-slot { display: none; }
   .walk-stage { display: block; position: relative; }
   .walk-stage .scene-frame { position: sticky; top: calc(50vh - 13rem); margin: 0; }
@@ -189,7 +190,7 @@ details p { padding: 0 1rem 1rem; color: var(--text-secondary); margin: 0; }
 .mini-note small, .mini-confirm small { color: var(--text-secondary); font-size: 0.75rem; }
 .ok { flex: none; width: 1rem; height: 1rem; margin-top: 0.125rem; border-radius: 50%; background: #24a148; position: relative; }
 .ok::after { content: ""; position: absolute; left: 0.3rem; top: 0.17rem; width: 0.25rem; height: 0.45rem; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
-.mini-list li.away { opacity: 0.6; }
+.mini-list li.away b { color: var(--text-secondary); }
 .mini-tabs { display: flex; margin-bottom: 0.75rem; }
 .mini-tabs span { padding: 0.5rem 0.875rem; font-size: 0.875rem; background: var(--layer-hover); }
 .mini-tabs span.on { background: var(--background); font-weight: 600; border-bottom: 2px solid var(--link); }
@@ -227,7 +228,6 @@ details p { padding: 0 1rem 1rem; color: var(--text-secondary); margin: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .anim .demo *, .js .scene, .js .scene * { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
-  .anim .demo .skip-row { opacity: 0.55 !important; }
   .anim .demo .demo-arrow { transform: none !important; }
   .walk-step { opacity: 1 !important; }
 }
