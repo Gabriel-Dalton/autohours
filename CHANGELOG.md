@@ -11,6 +11,7 @@
 
 ### Fixed
 
+- On a busy computer, refreshing the window could show "This window has expired" although autohours was still running. The window now retries before deciding the app has closed.
 - After a failed review, the disabled Write button kept the previous day's name. It now names the chosen day straight away.
 - Two clients whose names differ only in capitals, such as "Acme Corp" and "acme corp", were allowed. They now count as the same name, in the app and the text setup.
 - In the downloaded app, `--version` and `--help` started with a stray "Run started" line, and every command printed private log bookkeeping, including a long settings fingerprint. Those lines now go only to the private run log.

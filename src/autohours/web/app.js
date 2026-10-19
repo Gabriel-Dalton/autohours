@@ -1124,7 +1124,11 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && to
       try { token = sessionStorage.getItem(sessionKey) || ""; } catch {}
     }
     if (!token) throw new Error("Expired session");
-    await api("heartbeat", {});
+    // A refresh can race the old page's connections; only a repeated failure means the app has closed.
+    for (let attempt = 0; ; attempt++) {
+      try { await api("heartbeat", {}); break; }
+      catch (error) { if (attempt >= 3) throw error; await new Promise(resolve => setTimeout(resolve, 500)); }
+    }
   } catch {
     closedScreen(true);
     return;
