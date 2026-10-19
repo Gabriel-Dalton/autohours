@@ -105,6 +105,9 @@ def cell(text):
     return "'" + text if text.startswith(FORMULA_START) else text
 
 
+OPEN_ELSEWHERE = "Your spreadsheet is open in another program, such as Excel, so autohours cannot use it. Close it there and try again."
+
+
 def uncell(text):
     return text[1:] if text.startswith("'") and text[1:].startswith(FORMULA_START) else text
 
@@ -139,6 +142,8 @@ class CSV:
                         raise ValueError("Invalid interval")
                     if overlaps((a, b), (start, end)):
                         intervals.append((a, b))
+        except PermissionError:
+            raise UserError(OPEN_ELSEWHERE) from None
         except (ValueError, KeyError, TypeError, csv.Error):
             raise UserError("Existing CSV has invalid columns or times. Choose a new path or fix the file before syncing.") from None
         return intervals
@@ -146,7 +151,11 @@ class CSV:
     def create(self, block):
         header = not self.path.exists() or self.path.stat().st_size == 0
         # A byte order mark lets Excel read accented and non-Latin names correctly.
-        with self.path.open("a", newline="", encoding="utf-8-sig" if header else "utf-8") as stream:
+        try:
+            stream = self.path.open("a", newline="", encoding="utf-8-sig" if header else "utf-8")
+        except PermissionError:
+            raise UserError(OPEN_ELSEWHERE) from None
+        with stream:
             writer = csv.DictWriter(stream, fieldnames=self.fields)
             if header:
                 writer.writeheader()

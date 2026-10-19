@@ -1005,6 +1005,13 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && to
     return;
   }
   heartbeat = setInterval(beat, 5000);
+  // A mouse back button or Alt+Left would otherwise leave the page and close the app; treat it as the on-screen Back.
+  history.pushState({autohours: true}, "");
+  addEventListener("popstate", () => {
+    if (disconnected) return;
+    history.pushState({autohours: true}, "");
+    footer.querySelector("button.text-button")?.click();
+  });
   try { await refresh(); if (state.saved) await home(); else welcome(); }
   catch (error) { showError(error); }
 })();

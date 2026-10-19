@@ -14,6 +14,10 @@
 - Make the screen after Close app say the app closed as asked, instead of describing a lost connection.
 - Add a Known limitations section to the README.
 - Show one line per project in the Clockify rate check.
+- Treat the mouse back button and Alt+Left as the on-screen Back, instead of leaving the page and closing the app.
+- Say when the spreadsheet is open in another program such as Excel, instead of a general error.
+- Refuse an existing file with other columns as the spreadsheet at setup, instead of failing at the first write.
+- Add `autohours --version`.
 
 ## 1.0.2
 

@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from autohours.cli import date_range, main
+from autohours.cli import date_range, main, parser
 from autohours.config import load_config
 from autohours.models import UserError
 
@@ -166,3 +166,14 @@ def test_cli_legacy_console_encoding_for_stdout_and_stderr(tmp_path, monkeypatch
     assert "private ? title" in output.getvalue().decode("cp1252")
     assert "bad-command-?" in errors.getvalue().decode("cp1252")
     assert stdout.errors == stderr.errors == "replace"
+
+
+def test_version_matches_package_metadata(capsys):
+    import tomllib
+    from pathlib import Path
+    from autohours import __version__
+    project = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text(encoding="utf-8"))
+    assert __version__ == project["project"]["version"]
+    with pytest.raises(SystemExit):
+        parser().parse_args(["--version"])
+    assert capsys.readouterr().out.strip() == f"autohours {__version__}"

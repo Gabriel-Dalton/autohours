@@ -25,6 +25,7 @@ from . import desktop, runlog, schedule, setup, taskbar
 from .config import config_path, user_config_dir
 from .credentials import read_key
 from .models import UserError
+from .destinations import CSV, OPEN_ELSEWHERE
 from .plugins import DESTINATIONS
 from .review import span
 
@@ -390,6 +391,13 @@ class Application:
                 target = Path(path_value).expanduser().resolve()
                 if target.is_dir() or not target.parent.is_dir():
                     raise InputError("Choose a filename inside an existing folder.", "path")
+                if target.is_file() and target.stat().st_size:
+                    try:
+                        CSV({"path": str(target)}, ZoneInfo("UTC")).existing(datetime.min.replace(tzinfo=ZoneInfo("UTC")), datetime.max.replace(tzinfo=ZoneInfo("UTC")))
+                    except UserError as exc:
+                        if str(exc) == OPEN_ELSEWHERE:
+                            raise InputError(OPEN_ELSEWHERE, "path") from None
+                        raise InputError("This file already holds other data. Choose a new filename, or an autohours timesheet you used before.", "path") from None
                 s.raw["destination"] = {"type": kind, "path": str(target)}
                 s.key, s.http, s.pending = None, None, []
                 self.currency = self.workspace_name = ""
@@ -489,9 +497,10 @@ class Application:
                        + "\nRun config: " + runlog.config_id(s.path) + "\nRun kind: manual\nWrite phase started.")
             try:
                 result = s.command("sync", day, "--write")
-            except (UserError, OSError):
+            except (UserError, OSError) as exc:
                 log_event(started + "\nRun finished: needs attention")
-                raise InputError("The write did not finish. Some entries may already be saved. Review this day again before retrying.") from None
+                reason = f"{exc} " if str(exc) == OPEN_ELSEWHERE else ""
+                raise InputError(reason + "The write did not finish. Some entries may already be saved. Review this day again before retrying.") from None
             log_event(started + "\n" + self.clean(result) + "\nRun finished: success")
             summary = re.search(r"Wrote (\d+) entries, ([\d.]+) h\.", result)
             skipped = re.search(r"Created \d+, skipped (\d+)", result)

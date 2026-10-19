@@ -4,7 +4,7 @@ from importlib.resources import files
 from pathlib import Path
 import sys
 
-from . import APP_NAME, CONFIG_NAME
+from . import APP_NAME, CONFIG_NAME, __version__
 from . import accepted
 from .config import config_path, load_config
 from .destinations import sync
@@ -62,6 +62,7 @@ def show_unmatched(result):
 def parser():
     root = Parser(prog=APP_NAME, description="Review local activity before writing timesheet entries.")
     root.add_argument("--config", metavar="PATH")
+    root.add_argument("--version", action="version", version=f"{APP_NAME} {__version__}")
     commands = root.add_subparsers(dest="command", required=True, parser_class=Parser)
     commands.add_parser("gui", help="Open the desktop app")
     commands.add_parser("init", help="Create a starter config without overwriting")
