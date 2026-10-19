@@ -149,7 +149,7 @@ Codex and other agents can use [AGENTS.md](../AGENTS.md). Prefer `autohours setu
 
 **Can I use multiple computers?** Select `activitywatch.hostname` when a server contains multiple window buckets. Run separately on each computer with the same destination. Existing overlaps win; simultaneous activity is not combined, and simultaneous syncs are not supported.
 
-**Does this track my phone or offline work?** It does not observe that work. Use `accept` for specific work you confirm, or add entries manually in your destination. Existing destination entries take precedence on the next sync.
+**Does this track my phone or offline work?** It does not observe that work. Add it as time away on Home in the desktop app, use `accept` here, or add entries manually in your destination. Existing destination entries take precedence on the next sync.
 
 **How do I match browser URLs?** Install the ActivityWatch browser extension and set `use_web = true`. Web buckets must identify the selected hostname, and the event title must match the foreground window title after removing a standard browser-name suffix. This conservative check avoids attributing background tabs; unusual browser-added title suffixes can prevent URL matching. Use title rules when URL coverage is incomplete. Incognito web events are not used for URL matching.
 

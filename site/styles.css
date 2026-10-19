@@ -232,3 +232,8 @@ details p { padding: 0 1rem 1rem; color: var(--text-secondary); margin: 0; }
   .walk-step { opacity: 1 !important; }
 }
 details code { font-size: 0.875em; background: var(--layer-hover); padding: 0 0.25rem; overflow-wrap: anywhere; }
+
+/* Without JavaScript the walkthrough cannot follow the scroll, so show all three scenes in order. */
+html:not(.js) .walk-stage { display: block; }
+html:not(.js) .walk-stage .scene-frame { position: static; margin-top: 2rem; }
+html:not(.js) .walk-stage .scene { display: block; border-top: 1px solid var(--border); }

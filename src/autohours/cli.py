@@ -78,10 +78,14 @@ def parser():
     accept.add_argument("--project")
     accept.add_argument("--note", default="")
     accept.add_argument("--remove", metavar="ID")
-    listing = commands.add_parser("accepted")
+    listing = commands.add_parser("accepted", help="List accepted work for a day")
     listing.add_argument("date", nargs="?")
+    helps = {"preview": "Show the entries a day would get, without writing",
+             "sync": "Check, then write with --write, a day's entries",
+             "unmatched": "List activity no client covers",
+             "review": "Same as preview"}
     for command in ("preview", "sync", "unmatched", "review"):
-        sub = commands.add_parser(command)
+        sub = commands.add_parser(command, help=helps[command])
         sub.add_argument("dates", nargs="*", metavar="DATE")
         if command == "sync":
             sub.add_argument("--write", action="store_true", help="Actually write the reviewed blocks")
@@ -89,9 +93,9 @@ def parser():
             sub.add_argument("--html", metavar="PATH")
             sub.add_argument("--titles", action="store_true", help="Include private window titles")
             sub.add_argument("--verbose", action="store_true", help="Show all blocks and activity detail")
-    rules = commands.add_parser("rules")
+    rules = commands.add_parser("rules", help="Test which client a window title matches")
     tests = rules.add_subparsers(dest="rules_command", required=True, parser_class=Parser)
-    test = tests.add_parser("test")
+    test = tests.add_parser("test", help="Show the client a title, app and URL would match")
     test.add_argument("title")
     test.add_argument("--app", default="")
     test.add_argument("--url", default="")
@@ -115,7 +119,10 @@ def _run(args):
         return setup(args.config, args.add_project)
     if args.command == "schedule":
         from .schedule import remove
-        remove()
+        if remove():
+            print("Removed the autohours daily schedule. Your settings and timesheets remain.")
+        else:
+            print("There is no autohours daily schedule to remove. Nothing was changed.")
         return 0
     if args.command == "init":
         path = Path(args.config).expanduser() if args.config else Path.cwd() / CONFIG_NAME

@@ -318,7 +318,7 @@ legend { padding: 0; }
 .checkbox input:disabled { border-color: var(--text-disabled); cursor: not-allowed; }
 .checkbox input:focus-visible { outline-offset: 2px; }
 .assigned-projects { display: flex; flex-wrap: wrap; justify-content: end; gap: var(--spacing-02); max-width: 160px; }
-.assigned { display: inline-flex; align-items: center; height: 24px; padding: 0 var(--spacing-03); border-radius: 999px; color: var(--tag-color-blue); background: var(--tag-background-blue); font: var(--label-01); max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.assigned { display: inline-block; height: 24px; padding: 0 var(--spacing-03); border-radius: 999px; color: var(--tag-color-blue); background: var(--tag-background-blue); font: var(--label-01); max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; line-height: 24px; }
 .hours { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .coverage { margin-block: var(--spacing-06); }
 .coverage-heading { display: flex; justify-content: space-between; font: var(--label-01); letter-spacing: 0.32px; margin-bottom: var(--spacing-03); }

@@ -90,9 +90,18 @@ def test_linux_remove_only_own_cron_line(monkeypatch):
 def test_windows_remove_uses_named_task_only(monkeypatch):
     monkeypatch.setattr(schedule, "sys", SimpleNamespace(platform="win32"))
     calls = []
+    monkeypatch.setattr(schedule.subprocess, "run", lambda *a, **kw: SimpleNamespace(returncode=0))
     monkeypatch.setattr(schedule, "execute", lambda command: calls.append(command))
-    schedule.remove()
+    assert schedule.remove() is True
     assert calls == [["schtasks", "/Delete", "/TN", "AutohoursDaily", "/F"]]
+
+
+def test_removing_a_schedule_that_is_not_there_changes_nothing(monkeypatch, capsys):
+    monkeypatch.setattr(schedule, "sys", SimpleNamespace(platform="win32"))
+    monkeypatch.setattr(schedule.subprocess, "run", lambda *a, **kw: SimpleNamespace(returncode=1))
+    monkeypatch.setattr(schedule, "execute", lambda command: pytest.fail("nothing should run"))
+    assert main(["schedule", "--remove"]) == 0
+    assert "no autohours daily schedule to remove" in capsys.readouterr().out
 
 
 def test_mac_install_and_remove_do_not_run_real_launchctl(tmp_path, monkeypatch):

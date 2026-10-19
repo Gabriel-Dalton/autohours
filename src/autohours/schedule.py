@@ -166,15 +166,22 @@ def offer(config, prompts):
 
 
 def remove():
+    """Remove the daily schedule; returns False when there was none."""
     if sys.platform == "win32":
+        query = subprocess.run(["schtasks", "/Query", "/TN", TASK], capture_output=True, text=True, **hidden_console())
+        if query.returncode:
+            return False
         execute(["schtasks", "/Delete", "/TN", TASK, "/F"])
     elif sys.platform == "darwin":
         path = Path.home() / "Library/LaunchAgents" / (LABEL + ".plist")
-        if path.exists():
-            execute(["launchctl", "bootout", f"gui/{os.getuid()}/{LABEL}"])
-            path.unlink()
+        if not path.exists():
+            return False
+        execute(["launchctl", "bootout", f"gui/{os.getuid()}/{LABEL}"])
+        path.unlink()
     else:
         previous = read_crontab()
+        if not any(line.endswith(MARKER) for line in previous.splitlines()):
+            return False
         content = "\n".join(line for line in previous.splitlines() if not line.endswith(MARKER))
         execute(["crontab", "-"], content + "\n" if content else "")
-    print("Removed the autohours daily schedule. Your settings and timesheets remain.")
+    return True

@@ -538,7 +538,7 @@ function activityRows() {
     const input = el("input", {id: `activity-${item.id}`, type: "checkbox", "aria-label": `Assign ${item.name} to ${project?.name || "a client"}`});
     input.checked = !!project?.items.includes(item.id); input.disabled = !project;
     const badges = el("span", {class: "assigned-projects"});
-    const updateBadges = () => badges.replaceChildren(...projects.filter(p => p.items.includes(item.id)).map(p => el("span", {class: "assigned"}, p.name)));
+    const updateBadges = () => badges.replaceChildren(...projects.filter(p => p.items.includes(item.id)).map(p => el("span", {class: "assigned", title: p.name}, p.name)));
     updateBadges();
     const label = el("label", {class: "activity-row"}, el("span", {class: "checkbox"}, input, icon("checkmark")),
       el("span", {class: "name"}, item.name, el("small", {}, item.kind)), badges,
