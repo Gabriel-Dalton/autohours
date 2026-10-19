@@ -19,6 +19,7 @@
     set(base + "autohours-macos-apple-silicon.zip", "Download for Mac");
     note.innerHTML = 'Free, and experimental on Mac. For Apple silicon (M1 or newer); <a href="' + base + 'autohours-macos-intel.zip">older Intel Mac</a>. Works with <a href="https://activitywatch.net/">ActivityWatch</a>, also free.';
   } else if (/linux/i.test(platform)) {
+    set("#all-downloads", "See the downloads");
     note.textContent = "autohours is for Windows and Mac. Linux is not supported.";
   }
 })();

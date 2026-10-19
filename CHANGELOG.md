@@ -21,6 +21,7 @@
 
 ### Docs
 
+- A mistyped website address shows a page that leads back home, instead of a bare error code. On Linux, the website's button opens the list of downloads instead of offering one that does not run there.
 - Without JavaScript, the website shows all three walkthrough steps instead of an empty space.
 - The command-line guide mentions time away for offline work.
 - The README says where settings live and how to remove autohours cleanly, starting with turning off Every morning.
