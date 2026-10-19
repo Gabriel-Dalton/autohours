@@ -11,6 +11,7 @@
 
 ### Fixed
 
+- The line at the bottom of every screen sat outside the page's landmarks, so screen reader users moving by region skipped it. It is now the page footer. An automated accessibility check (axe) finds no issues on any screen of the app or the website.
 - After adding or removing time away, keyboard focus jumped to the top of the page. It now returns to the Time away section.
 - When a Clockify rate cannot be set because of the currency, the message now says what to do next.
 - On Windows, an action refused because another was still running could reach the window as a network failure instead of a "try again" message, so the automatic retry never happened. autohours now always answers cleanly, and two checks that start together no longer turn each other away.
