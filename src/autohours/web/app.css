@@ -187,6 +187,7 @@ button.tertiary:hover { background: var(--button-primary); color: var(--text-on-
 button.text-button { background: transparent; color: var(--link-primary); padding: 14px 16px; display: inline-flex; align-items: center; gap: var(--spacing-03); }
 .timezone-row { row-gap: 0; }
 .timezone-row .text-button { padding-inline: 0; }
+.billing-group .copy-agreement { margin: calc(-1 * var(--spacing-03)) 0 var(--spacing-03) calc(-1 * var(--spacing-05)); }
 button.text-button > .icon { position: static; }
 button.text-button > .icon:has(use[href$="#arrow--left"]) { order: -1; }
 button.text-button:hover, button.icon-button:hover { background: var(--layer-hover-01); }

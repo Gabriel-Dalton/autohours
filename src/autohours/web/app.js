@@ -11,6 +11,9 @@ let projects = [], items = [], remote = [], selected = 0, activitySearch = "", a
 let projectQueue = Promise.resolve(), projectFailure = null, projectRevision = 0;
 let primary, keyConnected = false, singleWorkspace = false, editChanged = false, unassignedOnly = false;
 let beforeStepBack = () => {};
+// Unsaved billing answers survive a refresh of this window. Only the billing screen sets this.
+let saveBillingDraft = () => {};
+for (const event of ["input", "change"]) document.querySelector("#page").addEventListener(event, () => { if (step === "billing") saveBillingDraft(); });
 // Explicit local references keep the sprite contract auditable without a build step.
 const iconPaths = {
   "add": "/icons.svg#add",
@@ -684,6 +687,13 @@ function billing() {
     const a = project.agreement;
     const group = card(projects.length > 1 ? project.name : null);
     group.classList.add("billing-group");
+    if (i > 0) group.append(button(`Same as ${projects[i - 1].name}`, () => {
+      const agreements = collect();
+      projects.forEach((p, k) => { p.agreement = agreements[k]; });
+      projects[i].agreement = {...agreements[i - 1]};
+      billing(); saveBillingDraft();
+      document.querySelectorAll(".billing-group")[i]?.scrollIntoView({block: "start"});
+    }, "text-button copy-agreement"));
     const rates = el("div", {class: "rate-row"}, field("Hourly rate", `rate-${i}`, a.rate ?? "", "number", {min: "0", step: "any"}),
       el("span", {class: "muted"}, "per hour in"), field("Currency", `currency-${i}`, a.currency || state.currency || "", "text", {maxlength: "3", placeholder: "For example, CAD"}));
     rates.hidden = a.billing !== "hourly";
@@ -732,10 +742,8 @@ function billing() {
     const drafts = projects.map(p => [p.name, p.agreement]);
     return () => { for (const p of projects) p.agreement = drafts.find(([name]) => name === p.name)?.[1] || p.agreement; };
   };
-  // Unsaved billing answers survive a refresh of this window.
   const draftKey = "autohours-billing";
-  page.addEventListener("input", () => { try { sessionStorage.setItem(draftKey, JSON.stringify({names: projects.map(p => p.name), agreements: collect()})); } catch {} });
-  page.addEventListener("change", () => page.dispatchEvent(new Event("input")));
+  saveBillingDraft = () => { try { sessionStorage.setItem(draftKey, JSON.stringify({names: projects.map(p => p.name), agreements: collect()})); } catch {} };
   foot("Save and continue", async () => {
     const agreements = collect();
     await api("agreements", {agreements});
