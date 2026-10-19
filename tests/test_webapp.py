@@ -333,6 +333,22 @@ def test_removing_a_client_takes_its_time_away_and_spares_the_rest(call, app, tm
     assert call(f"offline?day={day}")["blocks"] == []
 
 
+def test_a_client_renamed_to_a_removed_clients_name_keeps_only_its_own_time(tmp_path):
+    from autohours import accepted
+    (tmp_path / "autohours.accepted.toml").write_text(
+        '[[accepted]]\nid = "a1"\nstart = "2026-10-15T09:00:00+00:00"\nend = "2026-10-15T10:00:00+00:00"\nproject = "A"\n'
+        '[[accepted]]\nid = "b1"\nstart = "2026-10-15T11:00:00+00:00"\nend = "2026-10-15T12:00:00+00:00"\nproject = "B"\n', encoding="utf-8")
+    path, rows, gone = accepted.plan_client_changes(tmp_path / "web.toml", {"B": "A"}, {"A"}, removed={"A"})
+    assert [(r["id"], r["project"]) for r in rows] == [("b1", "A")] and gone == ["A"]
+
+
+def test_time_away_rows_that_are_not_plain_text_are_reported_not_crashed(tmp_path):
+    from autohours import accepted
+    (tmp_path / "autohours.accepted.toml").write_text('[[accepted]]\nid = "x1"\nproject = ["x"]\n', encoding="utf-8")
+    with pytest.raises(UserError, match="Invalid accepted time"):
+        accepted.plan_client_changes(tmp_path / "web.toml", {}, {"A"})
+
+
 def test_unreadable_time_away_file_stops_the_save_before_anything_changes(call, app, tmp_path):
     csv_setup(call, tmp_path)
     call("save", {})

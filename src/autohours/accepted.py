@@ -100,7 +100,8 @@ def _raw_rows(path):
         return []
     try:
         rows = tomllib.loads(path.read_text(encoding="utf-8")).get("accepted", [])
-        if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+        if not isinstance(rows, list) or not all(isinstance(row, dict) and isinstance(row.get("project"), str)
+                                                 and isinstance(row.get("id"), str) for row in rows):
             raise ValueError
         return rows
     except (ValueError, UnicodeError):
@@ -121,17 +122,21 @@ def _write_rows(path, rows):
             os.unlink(temporary)
 
 
-def plan_client_changes(config_path, renames, names):
-    """Rows after renaming clients (old name to new) and dropping clients no longer in the settings.
+def plan_client_changes(config_path, renames, names, removed=()):
+    """Rows after dropping removed clients, renaming clients (old name to new) and dropping any
+    client no longer in the settings. Removed clients are dropped first, so a client renamed to
+    a removed client's name never inherits that client's time.
 
     Returns (path, rows, removed client names), or None when nothing changes."""
     path = Path(config_path).resolve().with_name("autohours.accepted.toml")
     rows = _raw_rows(path)
-    updated = [{**row, "project": renames.get(row.get("project"), row.get("project"))} for row in rows]
-    kept = [row for row in updated if row.get("project") in names]
+    gone = {row["project"] for row in rows if row["project"] in removed}
+    updated = [{**row, "project": renames.get(row["project"], row["project"])} for row in rows if row["project"] not in removed]
+    gone |= {row["project"] for row in updated if row["project"] not in names}
+    kept = [row for row in updated if row["project"] in names]
     if kept == rows:
         return None
-    return path, kept, sorted({row.get("project") for row in updated if row.get("project") not in names}, key=str)
+    return path, kept, sorted(gone)
 
 
 def apply_client_changes(plan):

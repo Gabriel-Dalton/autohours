@@ -531,8 +531,9 @@ class Application:
                     raise InputError("Choose how you bill this client.", f"billing-{i}")
             renames = {self.saved_names[pid]: row["name"] for pid, row in zip(self.project_ids, s.raw["projects"])
                        if pid in self.saved_names and self.saved_names[pid] != row["name"]}
+            removed = {name for pid, name in self.saved_names.items() if pid not in self.project_ids}
             try:
-                time_away = accepted.plan_client_changes(s.path, renames, {row["name"] for row in s.raw["projects"]})
+                time_away = accepted.plan_client_changes(s.path, renames, {row["name"] for row in s.raw["projects"]}, removed)
             except UserError:
                 raise InputError("Your time away file could not be read, so nothing was saved. Close autohours, move autohours.accepted.toml out of your settings folder, and try again.") from None
             s.save()
@@ -541,16 +542,14 @@ class Application:
             except OSError:
                 raise InputError("Your settings are saved, but your time away could not be updated. Close any program using autohours.accepted.toml and save again.") from None
             self.saved_names = dict(zip(self.project_ids, (row["name"] for row in s.raw["projects"])))
-            if time_away and time_away[2]:
-                gone = ", ".join(time_away[2])
-                self.saved_key = self.saved_key or bool(self.secrets)
-                self.invalidate()
-                return {"saved": True, "message": f"Time away for {gone} was removed with the client."}
             if s.raw["destination"]["type"] == "clockify" and s.http:
                 s.remote = setup.remote_projects(s.http, s.raw["destination"]["workspace"])
             self.saved_key = self.saved_key or bool(self.secrets)
             self.invalidate()
-            return {"saved": True}
+            response = {"saved": True}
+            if time_away and time_away[2]:
+                response["message"] = f"Time away for {', '.join(time_away[2])} was removed with the client."
+            return response
         if route == ("GET", "/api/doctor"):
             s.require_saved()
             cfg = s.config()

@@ -874,6 +874,7 @@ function reviewCard(initialDay, fallback = false) {
     const request = ++requestNumber;
     section.querySelector(".confirmation")?.remove();
     reviewed = null; writeButton.disabled = reportButton.disabled = true;
+    buttonLabel(writeButton, `Write ${chosen === state.yesterday ? "yesterday" : chosen === state.today ? "today" : "this day"} to ${state.destination.type === "clockify" ? "Clockify" : "your spreadsheet"}`, "arrow--right");
     date.querySelector("input").value = chosen;
     yesterday.setAttribute("aria-pressed", String(chosen === state.yesterday));
     today.setAttribute("aria-pressed", String(chosen === state.today));
@@ -926,7 +927,6 @@ function reviewCard(initialDay, fallback = false) {
         results.append(offline);
       }
       writeButton.disabled = !result.entries.length; reportButton.disabled = false;
-      buttonLabel(writeButton, `Write ${day === state.yesterday ? "yesterday" : day === state.today ? "today" : "this day"} to ${state.destination.type === "clockify" ? "Clockify" : "your spreadsheet"}`, "arrow--right");
     } catch (error) {
       if (request !== requestNumber) return;
       results.replaceChildren(); showError(error);

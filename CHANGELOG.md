@@ -11,6 +11,7 @@
 
 ### Fixed
 
+- After a failed review, the disabled Write button kept the previous day's name. It now names the chosen day straight away.
 - Two clients whose names differ only in capitals, such as "Acme Corp" and "acme corp", were allowed. They now count as the same name, in the app and the text setup.
 - In the downloaded app, `--version` and `--help` started with a stray "Run started" line, and every command printed private log bookkeeping, including a long settings fingerprint. Those lines now go only to the private run log.
 - One written entry was reported as "1 entries" in the terminal and on Home's last morning run.
@@ -21,7 +22,7 @@
 - At phone width, the notes above the tables in the HTML report were cut off at the edge. They now wrap, and the tables scroll on their own.
 - A long client name in the activity list was cut off mid-letter. It now ends in an ellipsis and shows in full on hover.
 - `autohours schedule --remove`, or turning Every morning off after the task was deleted by hand, blamed account permissions when there was simply no schedule. It now says there is nothing to remove.
-- Renaming or removing a client after adding time away for it stopped every review, write and morning run with "Invalid accepted time". Time away now follows a renamed client. Removing a client and saving removes its time away too, and the app says so. Removing one time away entry never touches any other.
+- Renaming or removing a client after adding time away for it stopped every review, write and morning run with "Invalid accepted time". Time away now follows a renamed client. Removing a client and saving removes its time away too, and the app says so. Removing one time away entry never touches any other. Removing a client and renaming another to its name in the same save keeps each client's own time.
 - A quick second click while an earlier action was still finishing could show "Another check or save is still running". The app now waits a moment and retries.
 - The website and README said every day is reviewed before it is written; they now say Every morning writes on its own once you turn it on.
 
