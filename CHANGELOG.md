@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.3
 
 - Line up the Add button and the Yesterday and Today buttons with the fields beside them, and the "per hour in" label with the rate fields, at every window size.
 - Keep each screen's heading aligned with the step bar and at the same height from step to step, so the page no longer jumps while Clockify connects.
