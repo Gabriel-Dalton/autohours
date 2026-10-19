@@ -294,7 +294,7 @@ function screen(name, title, subtitle) {
   footer.replaceChildren(); primary = null;
   const steps = ["welcome", "activitywatch", "destination", ...(state?.destination.type === "clockify" ? ["connect", ...(keyConnected && !singleWorkspace ? ["workspace"] : [])] : []), "projects", "billing", "finish"];
   const index = steps.indexOf(name);
-  const labels = {welcome: "Welcome", activitywatch: "ActivityWatch", destination: "Destination", connect: "Connect", workspace: "Workspace", projects: "Projects", billing: "Billing", finish: "Finish"};
+  const labels = {welcome: "Welcome", activitywatch: "ActivityWatch", destination: "Destination", connect: "Connect", workspace: "Workspace", projects: "Clients", billing: "Billing", finish: "Finish"};
   const routes = {welcome, activitywatch: activityWatch, destination, connect, workspace, projects: projectsScreen, billing, finish};
   document.querySelector("#setup-progress").hidden = name === "home" || editing;
   document.querySelector("#progress-label").textContent = `Step ${index + 1} of ${steps.length}`;
@@ -826,7 +826,10 @@ function reviewCard(initialDay, fallback = false) {
         const [number, currency] = amount.split(" ");
         metric(Number(number), "Amount", n => n === Number(number) ? amount : `${n.toFixed(2)} ${currency}`);
       }
-      if (!result.entries.length) results.append(el("p", {class: "muted"}, "No timesheet entries yet. Let ActivityWatch record some work, then review this day again."));
+      if (!result.entries.length) results.append(el("p", {class: "muted"},
+        result.unmatched_minutes > 0 || result.short_piece_minutes > 0 ? "Nothing on this day matches a client yet."
+          : chosen === state.today ? "Nothing recorded yet today. Entries appear here as you work."
+          : "No work was recorded on this day. If you did work, check that ActivityWatch was running."));
       else {
         const descriptions = result.entries.some(e => e.description !== e.project);
         const fullDate = new Intl.DateTimeFormat(undefined, {weekday: "long", year: "numeric", month: "long", day: "numeric"}).format(new Date(chosen + "T12:00:00"));
@@ -835,7 +838,7 @@ function reviewCard(initialDay, fallback = false) {
           el("tbody", {}, ...result.entries.map(e => el("tr", {}, el("td", {}, e.time), el("td", {}, e.project), descriptions ? el("td", {}, e.description) : null, el("td", {}, duration(e.minutes))))));
         results.append(el("div", {class: "table-scroll", tabindex: "0", role: "region", "aria-label": "Timesheet entries, scroll to see all columns"}, table));
       }
-      if (result.unmatched_minutes > 0) results.append(el("p", {class: "review-note"}, `${duration(result.unmatched_minutes)} of activity did not match a project. `,
+      if (result.unmatched_minutes > 0) results.append(el("p", {class: "review-note"}, `${duration(result.unmatched_minutes)} of activity did not match a client. `,
         button("Assign it", async () => { editing = true; editChanged = false; unassignedOnly = true; await projectsScreen(); }, "text-button")));
       if (result.short_piece_minutes > 0) results.append(el("p", {class: "review-note"}, `${duration(result.short_piece_minutes)} was in pieces too short to bill (under ${result.minimum_minutes} min).`));
       results.append(el("details", {}, el("summary", {}, "How is this worked out?"),
